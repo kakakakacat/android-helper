@@ -1,5 +1,30 @@
 # 发布
 
+## 自动发布（推荐）：打标签就行
+
+全部在 GitHub Actions 上完成，不需要本机环境。
+
+| 发什么 | 步骤 | 自动做的事 |
+|---|---|---|
+| IDE 插件 + MCP | 改 `ide-plugin/build.gradle.kts` 的 `version`，在 `marketplace/change-notes.html` 顶部加 `<h3>版本号</h3>` 一节，提交推送，然后 `git tag v0.1.1 && git push origin v0.1.1` | 测试 → 签名打包 → 发布到 JetBrains Marketplace → 建 GitHub Release（附签名插件包和 MCP jar） |
+| SDK | 改 `sdk/gradle.properties` 的 `helper.version`，提交推送，然后 `git tag sdk-v0.1.2 && git push origin sdk-v0.1.2` | 编译 → 发布到 `mvn-repo/` → 提交回 main |
+
+- 标签和版本号对不上、change-notes 没写这个版本、SDK 版本已经发过 —— 都会直接失败，不会发出去半成品。
+- 每次推送到 main 都会跑 CI（`.github/workflows/ci.yml`）：编译测试全部组件，插件跑 Plugin Verifier（AS 2024.3 + 2026.2）。
+- 在 Actions 页面手动运行 Release / Publish SDK 是**演练**：只打包，不发布、不提交。
+
+仓库 Secrets（Settings → Secrets and variables → Actions）：
+
+| Secret | 内容 |
+|---|---|
+| `CERTIFICATE_CHAIN` | `~/.android-helper-signing/chain.crt` |
+| `PRIVATE_KEY` | `~/.android-helper-signing/private_encrypted.pem` |
+| `PRIVATE_KEY_PASSWORD` | 钥匙串 `android-helper-plugin-signing` 里的密码 |
+| `PUBLISH_TOKEN` | Marketplace → My Tokens 生成的 token |
+
+下面是本机手动发布的方法，CI 坏了或者需要在本机调试时用。
+
+
 两样东西要发布，顺序不能反：**先发 SDK，再发 IDE 插件**。插件商店页面上写的接入方式
 依赖 SDK 已经能从公开仓库拉到。
 

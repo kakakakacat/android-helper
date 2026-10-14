@@ -1,0 +1,63 @@
+# 发布 SDK（runtime AAR + Gradle 插件）到本仓库 main 分支的 mvn-repo/：
+#
+#   1. 改 sdk/gradle.properties 的 helper.version，提交推送
+#   2. git tag sdk-v0.1.2 && git push origin sdk-v0.1.2
+#
+# 然后自动：编译 → 发布到 mvn-repo/ → 提交回 main。使用方从
+# https://raw.githubusercontent.com/<repo>/main/mvn-repo/ 拉取。
+# 手动触发是演练：发布到 runner 本地检查产物，不提交。
+name: Publish SDK
+
+on:
+  push:
+    tags: ["sdk-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-sdk
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "25" }
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check version
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^helper.version=' sdk/gradle.properties | cut -d= -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "sdk-v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match sdk/gradle.properties helper.version=${VERSION}"
+            exit 1
+          fi
+          if [ -d "mvn-repo/kakacat/android/helper/runtime-core/${VERSION}" ]; then
+            echo "::error::${VERSION} is already in mvn-repo; bump helper.version (republishing a version breaks consumers' caches)"
+            exit 1
+          fi
+
+      - name: Build and publish to mvn-repo/
+        working-directory: sdk
+        run: |
+          ./gradlew --console=plain :sample:assembleDebug
+          ./gradlew --console=plain publishAllPublicationsToMvnRepoDirRepository :gradle-plugin:publishAllPublicationsToMvnRepoDirRepository
+          find ../mvn-repo -path "*/${{ steps.version.outputs.version }}/*" \( -name "*.aar" -o -name "*.jar" -o -name "*.pom" \) | sort
+
+      - name: Commit mvn-repo to main
+        if: github.ref_type == 'tag'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mvn-repo
+          git commit -m "publish SDK ${{ steps.version.outputs.version }}"
+          git push origin HEAD:main

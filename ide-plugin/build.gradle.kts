@@ -13,9 +13,14 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        // 直接针对本机安装的 Android Studio 编译：不用下载几个 GB 的 IDE，
-        // 而且编译时看到的 API 就是运行时的 API。
-        local(providers.gradleProperty("androidStudioPath"))
+        // 本机：直接针对安装的 Android Studio 编译，不用下载几个 GB 的 IDE。
+        // CI（没有本机 AS）：-PandroidStudioVersion=2026.1.4.7 改为下载这个版本。
+        val asVersion = providers.gradleProperty("androidStudioVersion").orNull
+        if (asVersion != null) {
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.AndroidStudio, asVersion)
+        } else {
+            local(providers.gradleProperty("androidStudioPath"))
+        }
     }
     implementation("kakacat.android.helper:client")
     testImplementation("junit:junit:4.13.2")
@@ -79,7 +84,7 @@ intellijPlatform {
             versions.filter { it.isNotEmpty() }.forEach {
                 create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.AndroidStudio, it)
             }
-            if (providers.gradleProperty("verifyLocal").orNull == "true") {
+            if (providers.gradleProperty("verifyLocal").orNull == "true" && providers.gradleProperty("androidStudioVersion").orNull == null) {
                 local(providers.gradleProperty("androidStudioPath").get())
             }
         }

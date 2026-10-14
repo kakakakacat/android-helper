@@ -1,0 +1,100 @@
+# 发布 IDE 插件 + MCP：
+#
+#   1. 改 ide-plugin/build.gradle.kts 的 version，在 ide-plugin/marketplace/change-notes.html 加一节，提交推送
+#   2. git tag v0.1.1 && git push origin v0.1.1
+#
+# 然后自动：签名打包 → 发布到 JetBrains Marketplace → 建 GitHub Release（附签名插件包和 MCP jar）。
+# 手动触发（Actions → Release → Run workflow）是演练：只打包签名，不发布。
+#
+# 需要的 Secrets：CERTIFICATE_CHAIN、PRIVATE_KEY、PRIVATE_KEY_PASSWORD（签名），PUBLISH_TOKEN（Marketplace）
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ANDROID_STUDIO_VERSION: "2026.1.4.7"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "25" }
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check tag matches plugin version
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version = ' ide-plugin/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match ide-plugin version ${VERSION}"
+            exit 1
+          fi
+          grep -q "<h3>${VERSION}</h3>" ide-plugin/marketplace/change-notes.html \
+            || { echo "::error::marketplace/change-notes.html has no section for ${VERSION}"; exit 1; }
+
+      - name: Build, sign and verify the plugin
+        working-directory: ide-plugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: |
+          ./gradlew --console=plain -PandroidStudioVersion=$ANDROID_STUDIO_VERSION test buildPlugin signPlugin
+          ./gradlew --console=plain -PandroidStudioVersion=$ANDROID_STUDIO_VERSION verifyPluginSignature
+          ls -l build/distributions/
+
+      - name: Build MCP server
+        working-directory: mcp
+        run: ./gradlew --console=plain test fatJar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.version.outputs.version }}
+          path: |
+            ide-plugin/build/distributions/*-signed.zip
+            mcp/build/libs/android-helper-mcp.jar
+
+      - name: Publish to JetBrains Marketplace
+        if: github.ref_type == 'tag'
+        working-directory: ide-plugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then
+            echo "::error::PUBLISH_TOKEN secret is not set (Marketplace → My Tokens)"
+            exit 1
+          fi
+          ./gradlew --console=plain -PandroidStudioVersion=$ANDROID_STUDIO_VERSION publishPlugin
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # 更新说明取自 change-notes.html 里这个版本的那一节（去掉 HTML 标签）
+          python3 - <<'PY' > notes.md
+          import os, re
+          v = os.environ["VERSION"]
+          html = open("ide-plugin/marketplace/change-notes.html", encoding="utf-8").read()
+          m = re.search(r"<h3>" + re.escape(v) + r"</h3>(.*?)(?=<h3>|\Z)", html, re.S)
+          body = m.group(1) if m else ""
+          items = [re.sub(r"<[^>]+>", "", x).strip() for x in re.findall(r"<li>(.*?)</li>", body, re.S)]
+          print("\n".join("- " + i for i in items))
+          print("\n**DroidLens** (Android Studio plugin) " + v + ": install from JetBrains Marketplace, or the signed zip below.")
+          print("**MCP server**: `claude mcp add android-helper -- java -jar /path/to/android-helper-mcp.jar`")
+          PY
+          gh release create "$GITHUB_REF_NAME" --title "DroidLens $VERSION" --notes-file notes.md \
+            ide-plugin/build/distributions/*-signed.zip mcp/build/libs/android-helper-mcp.jar
