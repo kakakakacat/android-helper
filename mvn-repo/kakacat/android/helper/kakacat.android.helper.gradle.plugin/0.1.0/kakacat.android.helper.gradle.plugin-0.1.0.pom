@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>kakacat.android.helper</groupId>
+  <artifactId>kakacat.android.helper.gradle.plugin</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+  <name>Android Helper Gradle plugin</name>
+  <description>Adds the Android Helper runtime to debug builds and instruments network / view call sites</description>
+  <url>https://github.com/kakakakacat/android-helper</url>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/kakakakacat/android-helper</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>kakacat.android.helper</groupId>
+      <artifactId>gradle-plugin</artifactId>
+      <version>0.1.0</version>
+    </dependency>
+  </dependencies>
+</project>

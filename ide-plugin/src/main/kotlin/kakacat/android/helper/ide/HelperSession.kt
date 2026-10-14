@@ -90,16 +90,16 @@ class HelperSession(val project: Project) : Disposable {
 
     fun connect(target: Endpoint) {
         val adb = adb() ?: run {
-            setState(State.DISCONNECTED, "找不到 adb，请安装 Android SDK platform-tools")
+            setState(State.DISCONNECTED, HelperBundle.message("adb.notFound"))
             return
         }
         connection?.close()
-        failPending("重新连接")
+        failPending(HelperBundle.message("conn.reconnecting"))
         val gen = ++generation
         endpoint = target
         lastPackage = target.pkg
         hello = null
-        setState(State.CONNECTING, "正在连接 ${target.pkg}…")
+        setState(State.CONNECTING, HelperBundle.message("conn.connecting", target.pkg))
 
         // pid 来自 hello，只有读线程会写，读线程之后的帧都用它
         var pid = 0
@@ -126,7 +126,7 @@ class HelperSession(val project: Project) : Disposable {
     fun request(json: JsonObject, timeoutMs: Long = 15_000, callback: (Result<Response>) -> Unit) {
         val conn = connection
         if (conn == null || state != State.CONNECTED) {
-            callback(Result.failure(IllegalStateException("没有连接到 App")))
+            callback(Result.failure(IllegalStateException(HelperBundle.message("conn.notConnected"))))
             return
         }
         val req = nextReq++
@@ -148,7 +148,7 @@ class HelperSession(val project: Project) : Disposable {
 
     fun disconnect() {
         lastPackage = null
-        failPending("连接已断开")
+        failPending(HelperBundle.message("conn.closed"))
         generation++
         connection?.close()
         connection = null
@@ -166,7 +166,7 @@ class HelperSession(val project: Project) : Disposable {
     private fun onConnectionClosed(gen: Int, error: Throwable?) {
         if (gen != generation) return
         connection = null
-        failPending("连接已断开")
+        failPending(HelperBundle.message("conn.closed"))
         val target = endpoint
         val wasConnected = state == State.CONNECTED
         if (error == null || target == null) {
@@ -174,10 +174,10 @@ class HelperSession(val project: Project) : Disposable {
             return
         }
         if (autoReconnect && wasConnected) {
-            setState(State.WAITING, "${target.pkg} 断开了，等待 App 重新启动…")
+            setState(State.WAITING, HelperBundle.message("conn.waiting", target.pkg))
             waitAndReconnect(gen, target)
         } else {
-            setState(State.DISCONNECTED, "连接失败：${error.message ?: error.javaClass.simpleName}")
+            setState(State.DISCONNECTED, HelperBundle.message("conn.failed", error.message ?: error.javaClass.simpleName))
         }
     }
 
@@ -235,7 +235,7 @@ class HelperSession(val project: Project) : Disposable {
         val expired = pending.filterValues { it.deadline < now }
         for ((req, p) in expired) {
             pending.remove(req)
-            p.callback(Result.failure(IllegalStateException("App 没有响应（超时）")))
+            p.callback(Result.failure(IllegalStateException(HelperBundle.message("conn.timeout"))))
         }
     }
 
@@ -243,7 +243,7 @@ class HelperSession(val project: Project) : Disposable {
         hello = json
         val pkg = json.str("pkg") ?: endpoint?.pkg
         val sdk = json.str("sdk")?.let { " · SDK $it" } ?: " · netcapture"
-        setState(State.CONNECTED, "已连接 $pkg（pid ${json.int("pid")}）$sdk")
+        setState(State.CONNECTED, HelperBundle.message("conn.connected", pkg ?: "", json.int("pid")?.toString() ?: "?", sdk))
     }
 
     private fun setState(s: State, message: String?) {

@@ -1,8 +1,9 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.ide.HelperBundle
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.DumbService
@@ -10,6 +11,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.concurrency.AppExecutorUtil
 
 /**
  * 把设备端记下的位置跳到源码。
@@ -58,35 +60,33 @@ class SourceNavigator(private val project: Project) {
         }
     }
 
+    /**
+     * 在后台读线程上查文件名索引，结果回到 EDT。`inSmartMode`：还在建索引时自动等到建完再查
+     * （刚打开项目就点跳转是很常见的情况）。
+     */
     private fun findAsync(names: List<String>, preferPath: String?, onFound: (VirtualFile?) -> Unit) {
-        val dumb = DumbService.getInstance(project)
-        if (dumb.isDumb) {
-            // 索引还没建好时文件名索引查不了；排队，建好了自动跳过去
-            notify("正在建立索引，完成后会自动跳转", NotificationType.INFORMATION)
-            dumb.runWhenSmart { findAsync(names, preferPath, onFound) }
-            return
-        }
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val file = ReadAction.compute<VirtualFile?, RuntimeException> {
-                if (project.isDisposed) return@compute null
-                // 先找项目源码，找不到再找依赖（带源码的三方库）
-                for (scope in listOf(GlobalSearchScope.projectScope(project), GlobalSearchScope.allScope(project))) {
-                    val candidates = names.flatMap { FilenameIndex.getVirtualFilesByName(it, scope) }
-                    if (candidates.isEmpty()) continue
-                    return@compute candidates.firstOrNull { preferPath != null && it.path.contains(preferPath) }
-                        ?: candidates.firstOrNull()
-                }
-                null
+        if (DumbService.isDumb(project)) notify(HelperBundle.message("nav.indexing"), NotificationType.INFORMATION)
+        ReadAction.nonBlocking<VirtualFile?> {
+            // 先找项目源码，找不到再找依赖（带源码的三方库）
+            for (scope in listOf(GlobalSearchScope.projectScope(project), GlobalSearchScope.allScope(project))) {
+                val candidates = names.flatMap { FilenameIndex.getVirtualFilesByName(it, scope) }
+                if (candidates.isEmpty()) continue
+                return@nonBlocking candidates.firstOrNull { preferPath != null && it.path.contains(preferPath) }
+                    ?: candidates.firstOrNull()
             }
-            ApplicationManager.getApplication().invokeLater { onFound(file) }
+            null
         }
+            .inSmartMode(project)
+            .expireWith(project)
+            .finishOnUiThread(ModalityState.nonModal()) { onFound(it) }
+            .submit(AppExecutorUtil.getAppExecutorService())
     }
 
     private fun navigate(file: VirtualFile, line: Int) {
         OpenFileDescriptor(project, file, (line - 1).coerceAtLeast(0), 0).navigate(true)
     }
 
-    private fun notFound(what: String) = notify("在项目里找不到 $what", NotificationType.WARNING)
+    private fun notFound(what: String) = notify(HelperBundle.message("nav.notFound", what), NotificationType.WARNING)
 
     private fun notify(text: String, type: NotificationType) {
         NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")

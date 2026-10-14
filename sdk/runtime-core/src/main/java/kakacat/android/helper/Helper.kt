@@ -11,8 +11,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 object Helper {
 
-    /** 和 sdk/build.gradle.kts 里的 version 保持一致。 */
-    const val VERSION: String = "0.1.0"
+    /** 来自 sdk/gradle.properties 的 helper.version。 */
+    @JvmField
+    val VERSION: String = BuildConfig.SDK_VERSION
 
     internal val features = CopyOnWriteArrayList<HelperFeature>()
 

@@ -1,0 +1,90 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "kakacat.android.helper",
+    "module": "runtime-layout",
+    "version": "0.1.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.5.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "kakacat.android.helper",
+          "module": "runtime-core",
+          "version": {
+            "requires": "0.1.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "runtime-layout-0.1.0.aar",
+          "url": "runtime-layout-0.1.0.aar",
+          "size": 50268,
+          "sha512": "eec1ae663b9f813ee55600e1cdc6c919e74f791672aa9727f7038db39476344b3167abee4ad4b7b1cf95e2b8eb753f04c221b01c5e12ed720c810e0a9a761140",
+          "sha256": "644fb9afc0652fb0f8e0d4cc34510e02c128c8eb3bb3f33294e916b0d059cb6a",
+          "sha1": "73eae5d5af0129aac96da9c8d83837751aeb18c2",
+          "md5": "39db3daf22668e502cdc26471bb05423"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "kakacat.android.helper",
+          "module": "runtime-core",
+          "version": {
+            "requires": "0.1.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.2.10"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "runtime-layout-0.1.0.aar",
+          "url": "runtime-layout-0.1.0.aar",
+          "size": 50268,
+          "sha512": "eec1ae663b9f813ee55600e1cdc6c919e74f791672aa9727f7038db39476344b3167abee4ad4b7b1cf95e2b8eb753f04c221b01c5e12ed720c810e0a9a761140",
+          "sha256": "644fb9afc0652fb0f8e0d4cc34510e02c128c8eb3bb3f33294e916b0d059cb6a",
+          "sha1": "73eae5d5af0129aac96da9c8d83837751aeb18c2",
+          "md5": "39db3daf22668e502cdc26471bb05423"
+        }
+      ]
+    }
+  ]
+}

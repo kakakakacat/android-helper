@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.intellij.notification.NotificationGroupManager
@@ -44,9 +45,9 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
     private val screen = ScreenView()
     private val treeModel = DefaultTreeModel(DefaultMutableTreeNode())
     private val tree = Tree(treeModel)
-    private val search = SearchTextField(false).apply { textEditor.emptyText.text = "搜索类名 / id / 文本，回车找下一个" }
-    private val showHidden = JBCheckBox("显示隐藏的 View")
-    private val grabButton = JButton("↻ 抓取")
+    private val search = SearchTextField(false).apply { textEditor.emptyText.text = HelperBundle.message("layout.search") }
+    private val showHidden = JBCheckBox(HelperBundle.message("layout.showHidden"))
+    private val grabButton = JButton(HelperBundle.message("layout.grab"))
     private val status = JBLabel()
     private val jumpBar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
     private val props = PropertyModel()
@@ -62,7 +63,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
             add(search)
             add(status)
         }
-        grabButton.toolTipText = "抓取 App 当前界面的截图和 View 树"
+        grabButton.toolTipText = HelperBundle.message("layout.grab.tip")
         grabButton.addActionListener { grab() }
         showHidden.addActionListener {
             screen.showHidden = showHidden.isSelected
@@ -149,13 +150,13 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
             result.onFailure {
                 grabbing = false
                 updateStatus()
-                status.text = "抓取失败：${it.message}"
+                status.text = HelperBundle.message("layout.grabFailed", it.message ?: "")
             }
             result.onSuccess { resp ->
                 if (!resp.ok) {
                     grabbing = false
                     updateStatus()
-                    status.text = "抓取失败：${resp.error}"
+                    status.text = HelperBundle.message("layout.grabFailed", resp.error ?: "")
                     return@onSuccess
                 }
                 val snap = LayoutSnapshot.parse(resp.json)
@@ -186,7 +187,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
         }
         treeModel.setRoot(root)
         expandTo(depth = 5)
-        status.text = "${snap.windows.size} 个窗口 · ${snap.nodeCount} 个节点 · 设备耗时 ${snap.treeMs + snap.imageMs} ms · 总计 $totalMs ms"
+        status.text = HelperBundle.message("layout.summary", snap.windows.size.toString(), snap.nodeCount.toString(), (snap.treeMs + snap.imageMs).toString(), totalMs.toString())
 
         val restore = keep?.let { (w, path) -> snap.findByPath(w, path) }
             ?: System.getProperty("androidhelper.demoSelect")?.let { text -> findFirst { it.text == text } }
@@ -268,7 +269,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
     private fun updateJumpBar(n: LNode?) {
         jumpBar.removeAll()
         if (n == null) {
-            jumpBar.add(JBLabel("选中一个 View 后可以跳到它的源码").apply { foreground = SimpleTextAttributes.GRAYED_ATTRIBUTES.fgColor })
+            jumpBar.add(JBLabel(HelperBundle.message("layout.selectHint")).apply { foreground = SimpleTextAttributes.GRAYED_ATTRIBUTES.fgColor })
         } else {
             val src = n.sources
             fun jump(label: String, tip: String?, action: () -> Unit) {
@@ -277,21 +278,21 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
                     addActionListener { action() }
                 })
             }
-            src["click"]?.let { s -> jump("点击监听", s) { navigator.openSite(s) } }
-            src["longClick"]?.let { s -> jump("长按监听", s) { navigator.openSite(s) } }
-            src["touch"]?.let { s -> jump("触摸监听", s) { navigator.openSite(s) } }
-            src["created"]?.let { s -> jump("创建位置", s) { navigator.openSite(s) } }
+            src["click"]?.let { s -> jump(HelperBundle.message("jump.click"), s) { navigator.openSite(s) } }
+            src["longClick"]?.let { s -> jump(HelperBundle.message("jump.longClick"), s) { navigator.openSite(s) } }
+            src["touch"]?.let { s -> jump(HelperBundle.message("jump.touch"), s) { navigator.openSite(s) } }
+            src["created"]?.let { s -> jump(HelperBundle.message("jump.created"), s) { navigator.openSite(s) } }
             // 布局文件和 inflate 位置可能在祖先上（xml 里的子 View 没有单独记录）
             val inflatedFrom = generateSequence(n) { it.parent }.firstOrNull { it.sources["layout"] != null }
-            inflatedFrom?.sources?.get("layout")?.let { name -> jump("布局 $name.xml", null) { navigator.openLayout(name) } }
-            inflatedFrom?.sources?.get("inflated")?.let { s -> jump("inflate 位置", s) { navigator.openSite(s) } }
+            inflatedFrom?.sources?.get("layout")?.let { name -> jump(HelperBundle.message("jump.layout", name), null) { navigator.openLayout(name) } }
+            inflatedFrom?.sources?.get("inflated")?.let { s -> jump(HelperBundle.message("jump.inflated"), s) { navigator.openSite(s) } }
             generateSequence(n) { it.parent }.firstNotNullOfOrNull { it.sources["shown"] }
-                ?.let { s -> jump("Dialog 弹出位置", s) { navigator.openSite(s) } }
+                ?.let { s -> jump(HelperBundle.message("jump.shown"), s) { navigator.openSite(s) } }
             generateSequence(n) { it.parent }.firstNotNullOfOrNull { it.fragment }
-                ?.let { f -> jump("Fragment", f) { navigator.openClass(f) } }
-            snapshot?.windowOf(n)?.activity?.let { a -> jump("Activity", a) { navigator.openClass(a) } }
+                ?.let { f -> jump(HelperBundle.message("jump.fragment"), f) { navigator.openClass(f) } }
+            snapshot?.windowOf(n)?.activity?.let { a -> jump(HelperBundle.message("jump.activity"), a) { navigator.openClass(a) } }
             if (!n.compose && !n.cls.startsWith("android.") && !n.cls.startsWith("androidx.") && !n.cls.startsWith("com.android.")) {
-                jump("View 类", n.cls) { navigator.openClass(n.cls) }
+                jump(HelperBundle.message("jump.viewClass"), n.cls) { navigator.openClass(n.cls) }
             }
         }
         jumpBar.revalidate()
@@ -310,7 +311,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
             val error = result.exceptionOrNull()?.message ?: result.getOrNull()?.takeIf { !it.ok }?.error
             if (error != null) {
                 NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")
-                    .createNotification("修改 $key 失败：$error", NotificationType.WARNING).notify(session.project)
+                    .createNotification(HelperBundle.message("layout.editFailed", key, error), NotificationType.WARNING).notify(session.project)
             }
             grab() // 不管成没成功都重新抓一次，界面以设备上的真实状态为准
         }
@@ -319,9 +320,9 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
     private fun updateStatus() {
         grabButton.isEnabled = canGrab() && !grabbing
         when {
-            grabbing -> status.text = "正在抓取…"
-            session.state != HelperSession.State.CONNECTED -> status.text = "先在上方连接一个 App"
-            !session.supports("layout") -> status.text = "这个 App 的 SDK 不支持布局检查（老版本 netcapture 或关闭了 layout）"
+            grabbing -> status.text = HelperBundle.message("layout.grabbing")
+            session.state != HelperSession.State.CONNECTED -> status.text = HelperBundle.message("layout.connectFirst")
+            !session.supports("layout") -> status.text = HelperBundle.message("layout.unsupported")
             snapshot == null -> status.text = ""
         }
     }
@@ -413,7 +414,7 @@ private class PropertyModel : AbstractTableModel() {
 
     override fun getRowCount() = rows.size
     override fun getColumnCount() = 2
-    override fun getColumnName(column: Int) = if (column == 0) "属性" else "值（可编辑的双击修改，单位 px）"
+    override fun getColumnName(column: Int) = if (column == 0) HelperBundle.message("layout.col.property") else HelperBundle.message("layout.col.value")
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any = rows[rowIndex].let { if (columnIndex == 0) it.label else it.value }
     override fun isCellEditable(rowIndex: Int, columnIndex: Int) = columnIndex == 1 && rows[rowIndex].editKey != null
 

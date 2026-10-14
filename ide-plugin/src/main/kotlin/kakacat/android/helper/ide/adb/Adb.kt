@@ -79,7 +79,7 @@ class Adb(val executable: File) {
      */
     fun endpoints(serial: String): List<Endpoint> {
         val r = run("-s", serial, "shell", "cat", "/proc/net/unix")
-        if (!r.ok) throw AdbException(r.stderr.ifBlank { "读取 /proc/net/unix 失败" })
+        if (!r.ok) throw AdbException(r.stderr.ifBlank { "failed to read /proc/net/unix" })
         val found = LinkedHashMap<String, Endpoint>()
         for (m in SOCKET_PATTERN.findAll(r.stdout)) {
             val prefix = m.groupValues[1]
@@ -96,7 +96,7 @@ class Adb(val executable: File) {
     fun forward(serial: String, socket: String): Int {
         val r = run("-s", serial, "forward", "tcp:0", "localabstract:$socket")
         val port = r.stdout.trim().toIntOrNull()
-        if (!r.ok || port == null) throw AdbException(r.stderr.ifBlank { "adb forward 失败" })
+        if (!r.ok || port == null) throw AdbException(r.stderr.ifBlank { "adb forward failed" })
         return port
     }
 

@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
@@ -144,7 +145,7 @@ class NetCall(
 }
 
 /** 调用在连上之前就开始了，没收到 start 事件，不知道 URL / 方法名。 */
-private const val MISSING_START = "（连接前已开始）"
+private val MISSING_START: String get() = HelperBundle.message("call.missingStart")
 
 internal fun JsonObject.str(name: String): String? {
     val e: JsonElement = get(name) ?: return null

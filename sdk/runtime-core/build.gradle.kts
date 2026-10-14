@@ -8,8 +8,10 @@ android {
     namespace = "kakacat.android.helper"
     compileSdk = 36
 
+    buildFeatures { buildConfig = true }
     defaultConfig {
         minSdk = 24
+        buildConfigField("String", "SDK_VERSION", "\"${providers.gradleProperty("helper.version").get()}\"")
         consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {

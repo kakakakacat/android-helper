@@ -70,7 +70,7 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
             Captured(windows, shots, list)
         }
         if (captured == null) {
-            error(client, "layout.snapshot.result", reqId, "主线程 3 秒内没有响应（App 可能卡住了）")
+            error(client, "layout.snapshot.result", reqId, "main thread did not respond within 3 s (is the app frozen?)")
             return
         }
         nodes = captured.nodes
@@ -103,14 +103,14 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
         val reqId = req.optInt("req")
         val view = nodes.getOrNull(req.optInt("node", -1))?.get()
         if (view == null) {
-            error(client, "layout.set.result", reqId, "View 已经不存在了，请重新抓取")
+            error(client, "layout.set.result", reqId, "the view no longer exists; capture again")
             return
         }
         val key = req.optString("key")
         val value = req.optString("value")
         val result = onMain { runCatching { PropertyEditor.apply(view, key, value) } }
         val err = when {
-            result == null -> "主线程没有响应"
+            result == null -> "main thread did not respond"
             result.isFailure -> result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName }
             else -> null
         }

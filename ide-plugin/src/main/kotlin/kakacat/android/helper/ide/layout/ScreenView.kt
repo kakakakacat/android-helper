@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.ide.HelperBundle
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
@@ -113,7 +114,7 @@ class ScreenView : JComponent() {
             val t = transform()
             if (snap == null || t == null) {
                 g.color = UIUtil.getContextHelpForeground()
-                val msg = "点击 ↻ 抓取当前界面"
+                val msg = HelperBundle.message("screen.empty")
                 g.drawString(msg, (width - g.fontMetrics.stringWidth(msg)) / 2, height / 2)
                 return
             }
@@ -192,7 +193,7 @@ class ScreenView : JComponent() {
         }
         if (parts.isEmpty()) {
             // 重叠/包含：给出四边的距离
-            parts.add("左 ${b.x - a.x}  上 ${b.y - a.y}  右 ${(a.x + a.width) - (b.x + b.width)}  下 ${(a.y + a.height) - (b.y + b.height)} px")
+            parts.add(HelperBundle.message("screen.gaps", (b.x - a.x).toString(), (b.y - a.y).toString(), ((a.x + a.width) - (b.x + b.width)).toString(), ((a.y + a.height) - (b.y + b.height)).toString()))
         }
         label(g, toScreen(a, scale, o), parts.joinToString("   "))
     }

@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.GsonBuilder
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorFontType
@@ -74,12 +75,12 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
         when (c.kind) {
             Kind.HTTP -> {
                 request.show(c.reqBody, c.reqType ?: header(c.reqHeaders, "content-type"),
-                    emptyHint = if (c.reqLen > 0) "（body 没有采集：流式 / 超过上限 / 二进制类型）" else "（无 body）")
+                    emptyHint = if (c.reqLen > 0) HelperBundle.message("body.notCapturedReq") else HelperBundle.message("body.none"))
                 response.show(c.respBody, c.respType ?: header(c.respHeaders, "content-type"),
                     emptyHint = when {
-                        c.state == CallState.PENDING -> "（等待响应…）"
-                        c.respLen > 0 -> "（body 没有采集：超过上限或类型被跳过）"
-                        else -> "（无 body）"
+                        c.state == CallState.PENDING -> HelperBundle.message("body.waiting")
+                        c.respLen > 0 -> HelperBundle.message("body.notCapturedResp")
+                        else -> HelperBundle.message("body.none")
                     })
             }
             else -> {
@@ -97,7 +98,7 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
         val c = call ?: return
         val m = messageModel.messages.getOrNull(messageTable.selectedRow)
         if (m == null) {
-            messageBody.show(null, emptyHint = if (c.messages.isEmpty()) "（还没有消息）" else "（选择一条消息）")
+            messageBody.show(null, emptyHint = if (c.messages.isEmpty()) HelperBundle.message("msg.none") else HelperBundle.message("msg.select"))
             return
         }
         val isProto = c.kind == Kind.GRPC
@@ -108,7 +109,7 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
         } else null
         val ct = if (c.kind == Kind.WS && m.type == "text") "text/plain" else null
         messageBody.show(m.body, ct, isProto, decode,
-            emptyHint = if (m.len > 0) "（消息体没有采集：超过上限）" else "（空消息）")
+            emptyHint = if (m.len > 0) HelperBundle.message("msg.notCaptured") else HelperBundle.message("msg.empty"))
     }
 
     private fun rebuildTabs(kind: Kind) {
@@ -135,7 +136,7 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
     private fun showEmpty() {
         tabs.removeAll()
         tabKind = null
-        overview.text = "选择左侧的一条请求查看详情"
+        overview.text = HelperBundle.message("detail.empty")
         tabs.addTab("Overview", JBScrollPane(overview))
     }
 
@@ -146,7 +147,7 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
         }
 
         fun section(title: String, rows: List<Pair<String, String>>) {
-            append('\n').append(title).append(if (rows.isEmpty()) "  （无）" else "").append('\n')
+            append('\n').append(title).append(if (rows.isEmpty()) "  " + HelperBundle.message("detail.none") else "").append('\n')
             for ((k, v) in rows) append("  ").append(k).append(": ").append(v).append('\n')
         }
 

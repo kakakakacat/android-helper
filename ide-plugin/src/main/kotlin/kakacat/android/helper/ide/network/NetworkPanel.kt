@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.ide.HelperBundle
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.SearchTextField
@@ -35,7 +36,7 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
     private val model = CallTableModel(store)
     private val sorter = TableRowSorter(model)
     private val table = JBTable(model)
-    private val filter = SearchTextField(false).apply { textEditor.emptyText.text = "过滤 URL / 方法 / 状态码" }
+    private val filter = SearchTextField(false).apply { textEditor.emptyText.text = HelperBundle.message("net.filter") }
     private val kindFilter = ComboBox(arrayOf("All", "HTTP", "gRPC", "WS"))
     private val counter = JBLabel()
 
@@ -181,8 +182,8 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
         val total = store.calls.size
         val shown = table.rowCount
         counter.text = buildString {
-            append(if (shown == total) "$total 条" else "$shown / $total 条")
-            if (store.dropped > 0) append("   ⚠ 设备侧丢弃 ${store.dropped} 条（队列满）")
+            append(if (shown == total) HelperBundle.message("net.count", total.toString()) else HelperBundle.message("net.countFiltered", shown.toString(), total.toString()))
+            if (store.dropped > 0) append("   ").append(HelperBundle.message("net.dropped", store.dropped.toString()))
         }
     }
 
@@ -198,9 +199,9 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
                 addActionListener { text()?.let { CopyPasteManager.getInstance().setContents(StringSelection(it)) } }
             })
         }
-        item("复制 URL", call.url != null || call.grpcMethod != null) { call.url ?: call.grpcMethod }
-        item("复制为 cURL", call.kind == Kind.HTTP) { Curl.of(call) }
-        item("复制响应 Body", call.respBody != null) { call.respBody?.let { BodyFormat.json(it.bytes) ?: BodyFormat.text(it.bytes) } }
+        item(HelperBundle.message("menu.copyUrl"), call.url != null || call.grpcMethod != null) { call.url ?: call.grpcMethod }
+        item(HelperBundle.message("menu.copyCurl"), call.kind == Kind.HTTP) { Curl.of(call) }
+        item(HelperBundle.message("menu.copyBody"), call.respBody != null) { call.respBody?.let { BodyFormat.json(it.bytes) ?: BodyFormat.text(it.bytes) } }
         menu.show(table, e.x, e.y)
     }
 }
@@ -220,7 +221,7 @@ object Curl {
             if (BodyFormat.looksTextual(body.bytes)) {
                 append(" \\\n  --data-raw ").append(quote(String(body.bytes, Charsets.UTF_8)))
             } else {
-                append(" \\\n  # 二进制请求体（${body.bytes.size} B）没有包含在命令里")
+                append(" \\\n  ").append(HelperBundle.message("curl.binary", body.bytes.size.toString()))
             }
         }
     }

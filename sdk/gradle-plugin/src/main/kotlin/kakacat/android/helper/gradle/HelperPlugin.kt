@@ -142,9 +142,6 @@ class HelperPlugin : Plugin<Project> {
 
     companion object {
         const val GROUP = "kakacat.android.helper"
-
-        /** 和 sdk/build.gradle.kts 里的 version 保持一致。 */
-        const val SDK_VERSION = "0.1.0"
     }
 }
 

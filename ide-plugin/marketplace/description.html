@@ -1,0 +1,37 @@
+<p>
+Debug a running Android debug build without leaving Android Studio:
+an <b>in-IDE network inspector</b> (OkHttp, gRPC, WebSocket) and a lightweight
+<b>layout inspector</b> that jumps straight to the code that created a view.
+No proxy, no CA certificate, no web page.
+</p>
+
+<h3>Network</h3>
+<ul>
+  <li>Application-layer capture: HTTPS in plain text (before encryption / after decryption), unaffected by certificate pinning.</li>
+  <li>OkHttp requests with headers, bodies, TLS version, timing; gRPC calls with metadata, status and every streaming message; WebSocket frames in both directions.</li>
+  <li>JSON / text / hex / image viewers; protobuf decoding by field number, or by field name when a descriptor set is bundled.</li>
+  <li>Copy as cURL. Sensitive headers, tokens and passwords are redacted on the device before they leave the app.</li>
+</ul>
+
+<h3>Layout</h3>
+<ul>
+  <li>Screenshot + View tree of every window (Activity, Dialog, PopupWindow), and the semantics tree of Jetpack Compose screens.</li>
+  <li>One click to the source: where a view was created, where its click / long-click / touch listener was set, the layout XML it was inflated from, where a Dialog was shown, its Fragment and Activity.</li>
+  <li>Edit properties live: text, visibility, alpha, padding, margin, size, colors, translation, scale.</li>
+  <li>Measure the spacing between two views (Shift + click).</li>
+  <li>Captures on demand only, no continuous streaming, so it stays fast on slow machines (a typical screen takes under 100 ms on the device).</li>
+</ul>
+
+<h3>Setup</h3>
+<p>Add the Gradle plugin to your app module; no code changes. The runtime is added to <code>debug</code> builds only and is completely absent from release builds.</p>
+<pre>plugins {
+    id("kakacat.android.helper") version "0.1.0"
+}</pre>
+<p>Repository setup and options: <a href="https://github.com/kakakakacat/android-helper">github.com/kakakakacat/android-helper</a></p>
+
+<hr/>
+<p>
+在 Android Studio 里直接调试运行中的 debug 包：应用层抓包（OkHttp / gRPC / WebSocket，HTTPS 明文，无需代理和证书），
+以及轻量的布局检查（截图、View / Compose 树、属性实时修改、一键跳到创建 View / 设置点击监听的代码）。
+可替代 CodeLocator 和 Layout Inspector 的常用功能。
+</p>

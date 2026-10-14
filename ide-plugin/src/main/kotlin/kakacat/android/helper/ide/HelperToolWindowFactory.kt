@@ -60,8 +60,8 @@ class HelperToolWindow(private val project: Project, private val session: Helper
         devices.addActionListener { if (!loading) refreshApps() }
 
         val group = DefaultActionGroup().apply {
-            add(action("刷新设备和 App 列表", AllIcons.Actions.Refresh) { refreshDevices() })
-            add(object : AnAction("连接", "连接到选中的 App，开始抓包", AllIcons.Actions.Execute), DumbAware {
+            add(action(HelperBundle.message("action.refresh"), AllIcons.Actions.Refresh) { refreshDevices() })
+            add(object : AnAction(HelperBundle.message("action.connect"), HelperBundle.message("action.connect.desc"), AllIcons.Actions.Execute), DumbAware {
                 override fun actionPerformed(e: AnActionEvent) {
                     (apps.selectedItem as? Endpoint)?.let { session.connect(it) }
                 }
@@ -74,7 +74,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
 
                 override fun getActionUpdateThread() = ActionUpdateThread.EDT
             })
-            add(object : AnAction("断开", "断开连接（App 侧采集随之停止，零开销）", AllIcons.Actions.Suspend), DumbAware {
+            add(object : AnAction(HelperBundle.message("action.disconnect"), HelperBundle.message("action.disconnect.desc"), AllIcons.Actions.Suspend), DumbAware {
                 override fun actionPerformed(e: AnActionEvent) = session.disconnect()
                 override fun update(e: AnActionEvent) {
                     e.presentation.isEnabled = session.state != HelperSession.State.DISCONNECTED
@@ -83,8 +83,8 @@ class HelperToolWindow(private val project: Project, private val session: Helper
                 override fun getActionUpdateThread() = ActionUpdateThread.EDT
             })
             addSeparator()
-            add(action("清空", AllIcons.Actions.GC) { session.clear() })
-            add(object : AnAction("发送探针请求", "让 App 发一个 HTTPS 请求，确认抓包链路是通的", AllIcons.Actions.Lightning), DumbAware {
+            add(action(HelperBundle.message("action.clear"), AllIcons.Actions.GC) { session.clear() })
+            add(object : AnAction(HelperBundle.message("action.probe"), HelperBundle.message("action.probe.desc"), AllIcons.Actions.Lightning), DumbAware {
                 override fun actionPerformed(e: AnActionEvent) = probe()
                 override fun update(e: AnActionEvent) {
                     e.presentation.isEnabled = session.state == HelperSession.State.CONNECTED
@@ -107,8 +107,8 @@ class HelperToolWindow(private val project: Project, private val session: Helper
 
         val tabs = JBTabbedPane()
         val layout = LayoutPanel(session)
-        tabs.addTab("Network", NetworkPanel(session))
-        tabs.addTab("Layout", layout)
+        tabs.addTab(HelperBundle.message("tab.network"), NetworkPanel(session))
+        tabs.addTab(HelperBundle.message("tab.layout"), layout)
         tabs.addChangeListener { if (tabs.selectedComponent === layout) layout.onShown() }
         // 开发用：-Dandroidhelper.demoTab=Layout
         System.getProperty("androidhelper.demoTab")?.let { title ->
@@ -122,7 +122,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
 
     override fun onStateChanged(state: HelperSession.State, message: String?) {
         status.text = message ?: when (state) {
-            HelperSession.State.DISCONNECTED -> "未连接"
+            HelperSession.State.DISCONNECTED -> HelperBundle.message("status.disconnected")
             else -> ""
         }
         status.foreground = when (state) {
@@ -133,14 +133,14 @@ class HelperToolWindow(private val project: Project, private val session: Helper
 
     fun refreshDevices() {
         val adb = session.adb() ?: run {
-            status.text = "找不到 adb：请在项目 local.properties 里配置 sdk.dir，或设置 ANDROID_HOME"
+            status.text = HelperBundle.message("status.adbMissing")
             return
         }
-        status.text = "正在查找设备…"
+        status.text = HelperBundle.message("status.findingDevices")
         ApplicationManager.getApplication().executeOnPooledThread {
             val result = runCatching { adb.devices() }
             SwingUtilities.invokeLater {
-                result.onFailure { status.text = "adb devices 失败：${it.message}" }
+                result.onFailure { status.text = HelperBundle.message("status.adbDevicesFailed", it.message ?: "") }
                 result.onSuccess { list ->
                     val previous = devices.selectedItem as? Device
                     loading = true
@@ -150,7 +150,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
                     loading = false
                     if (list.isEmpty()) {
                         apps.model = DefaultComboBoxModel()
-                        status.text = "没有发现设备，请用 USB 连接并打开 USB 调试"
+                        status.text = HelperBundle.message("status.noDevices")
                     } else {
                         refreshApps()
                     }
@@ -164,13 +164,13 @@ class HelperToolWindow(private val project: Project, private val session: Helper
         val adb = session.adb() ?: return
         if (!device.online) {
             apps.model = DefaultComboBoxModel()
-            status.text = "设备状态：${device.state}"
+            status.text = HelperBundle.message("status.deviceState", device.state)
             return
         }
         ApplicationManager.getApplication().executeOnPooledThread {
             val result = runCatching { adb.endpoints(device.serial) }
             SwingUtilities.invokeLater {
-                result.onFailure { status.text = "读取 App 列表失败：${it.message}" }
+                result.onFailure { status.text = HelperBundle.message("status.listAppsFailed", it.message ?: "") }
                 result.onSuccess { list ->
                     val previous = (apps.selectedItem as? Endpoint) ?: session.endpoint
                     apps.model = DefaultComboBoxModel(list.toTypedArray())
@@ -185,9 +185,9 @@ class HelperToolWindow(private val project: Project, private val session: Helper
                     }
                     if (session.state == HelperSession.State.DISCONNECTED) {
                         status.text = if (list.isEmpty()) {
-                            "设备上没有运行中的、接入了 SDK 的 debug App"
+                            HelperBundle.message("status.noApps")
                         } else {
-                            "发现 ${list.size} 个 App，选择后点 ▶ 连接"
+                            HelperBundle.message("status.appsFound", list.size.toString())
                         }
                     }
                 }
@@ -202,7 +202,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
             val r = runCatching { adb.probe(endpoint) }.getOrNull()
             if (r == null || !r.ok || r.stdout.contains("Error", ignoreCase = true)) {
                 NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")
-                    .createNotification("探针发送失败：${r?.stderr?.ifBlank { r.stdout } ?: "adb 执行失败"}", NotificationType.WARNING)
+                    .createNotification(HelperBundle.message("probe.failed", r?.stderr?.ifBlank { r.stdout } ?: HelperBundle.message("probe.adbFailed")), NotificationType.WARNING)
                     .notify(project)
             }
         }

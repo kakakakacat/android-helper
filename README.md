@@ -25,18 +25,30 @@ androidhelper/
 
 ## 在项目里接入
 
-> 还没发布到远程仓库，先用 mavenLocal。
+1. `settings.gradle(.kts)` 里加上仓库 —— **两处都要加**：Gradle 插件从 `pluginManagement`
+   解析，运行时 AAR 从 `dependencyResolutionManagement` 解析。
 
-1. 发布到本机：
-
-   ```bash
-   cd sdk && ./gradlew publishToMavenLocal :gradle-plugin:publishToMavenLocal
+   ```kotlin
+   pluginManagement {
+       repositories {
+           maven { url = uri("https://raw.githubusercontent.com/kakakakacat/android-helper/main/mvn-repo/") }
+           gradlePluginPortal()
+           google()
+       }
+   }
+   dependencyResolutionManagement {
+       repositories {
+           maven { url = uri("https://raw.githubusercontent.com/kakakakacat/android-helper/main/mvn-repo/") }
+           google()
+           mavenCentral()
+       }
+   }
    ```
 
-2. 目标项目 `settings.gradle.kts` 的 `pluginManagement.repositories` 和
-   `dependencyResolutionManagement.repositories` 里都加上 `mavenLocal()`。
+   仓库是公开的静态目录，不需要 token。（发布到 GitHub 之前，可以先 `cd sdk && ./gradlew publishToMavenLocal
+   :gradle-plugin:publishToMavenLocal`，再把上面的 url 换成 `mavenLocal()`。）
 
-3. app 模块：
+2. app 模块：
 
    ```kotlin
    plugins {
@@ -134,11 +146,18 @@ adb shell am start -n kakacat.android.helper.sample/.ComposeActivity            
 cd ide-plugin
 ./gradlew test                                   # 单元测试
 ANDROIDHELPER_E2E=1 ./gradlew test               # 加上真机端到端（需要设备上跑着 sample）
-./gradlew runIde -PdemoProject=/Users/dm/androidhelper/sdk \
+./gradlew runIde -PdemoProject=$PWD/../sdk \
     -PautoConnect=kakacat.android.helper.sample \
     -PdemoTab=Layout -PdemoSelect="GET json" -PdemoJump=click
 # 沙箱 AS：自动打开工具窗口、连接、切到 Layout、选中按钮、跳到它的点击监听
 ```
 
+发布流程（SDK → GitHub mvn-repo，插件 → JetBrains Marketplace）见
+[ide-plugin/marketplace/PUBLISHING.md](ide-plugin/marketplace/PUBLISHING.md)。
+
 编译针对的是本机 `/Applications/Android Studio.app`（不下载 IDE），路径可用
 `-PandroidStudioPath=...` 覆盖。已在 Android Studio Quail 4（2026.1.4，build 261）上验证。
+
+## License
+
+Apache-2.0，见 [LICENSE](LICENSE)。

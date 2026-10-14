@@ -27,11 +27,23 @@ java {
 }
 tasks.withType<JavaCompile>().configureEach { options.release.set(21) }
 kotlin {
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21) }
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        // 插件用的是 IDE 自带的 Kotlin 标准库；最老支持的 AS 2024.3 带的是 2.0.x，
+        // 按 2.0 的 API 编译，避免用到老 IDE 里不存在的标准库函数（运行时才会 NoSuchMethodError）
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        // 实现平台的 Kotlin 接口（ToolWindowFactory 等）时不生成兼容桥接方法；否则那些桥接方法
+        // 会"覆盖"接口里已废弃 / 实验性的默认方法，Plugin Verifier 会把它们报成我们的问题
+        jvmDefault.set(org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode.NO_COMPATIBILITY)
+    }
 }
 
 intellijPlatform {
     pluginConfiguration {
+        version = project.version.toString()
+        // 商店页面上的介绍和更新说明放在单独的文件里，方便编辑
+        description = providers.fileContents(layout.projectDirectory.file("marketplace/description.html")).asText
+        changeNotes = providers.fileContents(layout.projectDirectory.file("marketplace/change-notes.html")).asText
         ideaVersion {
             sinceBuild = "243"
             // 不设上限。CodeLocator 在新版 AS 上启动就崩，很大一部分原因是绑死了内部 API
@@ -39,6 +51,39 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+
+    // 签名和发布用的密钥只从环境变量读，绝不写进仓库。生成方法见 marketplace/PUBLISHING.md
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+
+    // ./gradlew verifyPlugin：用 JetBrains Plugin Verifier 检查 API 兼容性（商店上传后也会跑同样的检查）。
+    // 每个版本要下载 1–1.5 GB，可以用 -PverifyAndroidStudio=2024.3.2.14,2026.2.1.8 只验一部分，
+    // -PverifyLocal=true 额外验证本机安装的那个。
+    pluginVerification {
+        ides {
+            val versions = providers.gradleProperty("verifyAndroidStudio").orNull?.split(',')?.map { it.trim() }
+                ?: listOf(
+                    "2024.3.2.14", // Meerkat Feature Drop, build 243 = sinceBuild
+                    "2025.1.4.8",  // Narwhal 4 Feature Drop, 251
+                    "2025.2.3.9",  // Otter 3 Feature Drop, 252
+                    "2025.3.4.6",  // Panda 4, 253
+                    "2026.2.1.8",  // Rabbit 1, 262（CodeLocator 在这一版上启动就崩）
+                )
+            versions.filter { it.isNotEmpty() }.forEach {
+                create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.AndroidStudio, it)
+            }
+            if (providers.gradleProperty("verifyLocal").orNull == "true") {
+                local(providers.gradleProperty("androidStudioPath").get())
+            }
+        }
+    }
+
     buildSearchableOptions = false
     instrumentCode = false
 }

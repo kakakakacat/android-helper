@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.ide.HelperBundle
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.EditorFontType
 import com.intellij.openapi.ide.CopyPasteManager
@@ -27,7 +28,7 @@ class BodyViewer : JPanel(BorderLayout()) {
 
     private val viewBox = ComboBox(BodyView.entries.toTypedArray())
     private val info = JBLabel()
-    private val copy = JButton("Copy")
+    private val copy = JButton(HelperBundle.message("body.copy"))
     private val text = JBTextArea().apply {
         isEditable = false
         lineWrap = false
@@ -69,7 +70,7 @@ class BodyViewer : JPanel(BorderLayout()) {
         contentType: String? = null,
         isProto: Boolean = false,
         protoDecode: ((ByteArray) -> String?)? = null,
-        emptyHint: String = "（无 body）",
+        emptyHint: String = HelperBundle.message("body.none"),
     ) {
         this.bytes = body?.bytes
         this.contentType = contentType
@@ -78,7 +79,7 @@ class BodyViewer : JPanel(BorderLayout()) {
         this.emptyHint = emptyHint
         info.text = when {
             body == null -> ""
-            body.truncated -> "${BodyFormat.size(body.bytes.size.toLong())}（原始 ${BodyFormat.size(body.truncatedFrom.toLong())}，已截断）"
+            body.truncated -> HelperBundle.message("body.truncated", BodyFormat.size(body.bytes.size.toLong()), BodyFormat.size(body.truncatedFrom.toLong()))
             else -> BodyFormat.size(body.bytes.size.toLong())
         }
         render()
@@ -113,7 +114,7 @@ class BodyViewer : JPanel(BorderLayout()) {
             BodyView.HEX -> showText(BodyFormat.hex(b))
             BodyView.PROTOBUF -> showText(
                 protoDecode?.invoke(b)
-                    ?: ProtoRegistry.heuristic(b)?.let { "# 没有 descriptor，按字段号显示\n$it" }
+                    ?: ProtoRegistry.heuristic(b)?.let { HelperBundle.message("body.noDescriptor") + "\n" + it }
                     ?: BodyFormat.hex(b)
             )
             BodyView.AUTO -> Unit // currentView() 不会返回 AUTO
