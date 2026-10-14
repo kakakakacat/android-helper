@@ -31,7 +31,7 @@ class HelperStartupActivity : ProjectActivity {
     }
 
     companion object {
-        const val TOOL_WINDOW_ID = "Android Helper"
+        const val TOOL_WINDOW_ID = "DroidLens"
         private const val SHOWN_KEY = "kakacat.androidhelper.stripeShown"
     }
 }

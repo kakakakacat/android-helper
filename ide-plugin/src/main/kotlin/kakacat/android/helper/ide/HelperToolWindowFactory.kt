@@ -202,7 +202,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
         ApplicationManager.getApplication().executeOnPooledThread {
             val r = runCatching { adb.probe(endpoint) }.getOrNull()
             if (r == null || !r.ok || r.stdout.contains("Error", ignoreCase = true)) {
-                NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")
+                NotificationGroupManager.getInstance().getNotificationGroup("DroidLens")
                     .createNotification(HelperBundle.message("probe.failed", r?.stderr?.ifBlank { r.stdout } ?: HelperBundle.message("probe.adbFailed")), NotificationType.WARNING)
                     .notify(project)
             }

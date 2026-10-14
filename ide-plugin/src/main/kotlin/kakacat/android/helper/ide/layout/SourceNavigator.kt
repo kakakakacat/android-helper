@@ -90,7 +90,7 @@ class SourceNavigator(private val project: Project) {
     private fun notFound(what: String) = notify(HelperBundle.message("nav.notFound", what), NotificationType.WARNING)
 
     private fun notify(text: String, type: NotificationType) {
-        NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")
+        NotificationGroupManager.getInstance().getNotificationGroup("DroidLens")
             .createNotification(text, type).notify(project)
     }
 }

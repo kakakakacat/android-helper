@@ -1,7 +1,7 @@
 <!-- name / version / description / change-notes / 兼容范围由 build.gradle.kts 的 pluginConfiguration 填进来 -->
 <idea-plugin>
     <id>kakacat.android.helper</id>
-    <name>Android Helper</name>
+    <name>DroidLens</name>
     <vendor url="https://github.com/kakakakacat/android-helper">kakacat</vendor>
 
     <depends>com.intellij.modules.platform</depends>
@@ -9,11 +9,11 @@
     <resource-bundle>messages.HelperBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Android Helper"
+        <toolWindow id="DroidLens"
                     anchor="bottom"
                     icon="/icons/helper.svg"
                     factoryClass="kakacat.android.helper.ide.HelperToolWindowFactory"/>
-        <notificationGroup id="Android Helper" displayType="BALLOON"/>
+        <notificationGroup id="DroidLens" displayType="BALLOON"/>
         <postStartupActivity implementation="kakacat.android.helper.ide.HelperStartupActivity"/>
     </extensions>
 </idea-plugin>

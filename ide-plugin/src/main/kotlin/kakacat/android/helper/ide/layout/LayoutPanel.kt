@@ -311,7 +311,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
         session.request(req) { result ->
             val error = result.exceptionOrNull()?.message ?: result.getOrNull()?.takeIf { !it.ok }?.error
             if (error != null) {
-                NotificationGroupManager.getInstance().getNotificationGroup("Android Helper")
+                NotificationGroupManager.getInstance().getNotificationGroup("DroidLens")
                     .createNotification(HelperBundle.message("layout.editFailed", key, error), NotificationType.WARNING).notify(session.project)
             }
             grab() // 不管成没成功都重新抓一次，界面以设备上的真实状态为准

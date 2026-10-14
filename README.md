@@ -1,4 +1,6 @@
-# Android Helper
+# DroidLens（Android Helper）
+
+> Android Studio 插件在 JetBrains Marketplace 上的名字是 **DroidLens**；仓库、SDK 坐标和 MCP 服务沿用 android-helper 这个名字。
 
 在 Android Studio 里直接调试运行中的 debug 包，不用开网页、不用配代理。
 
@@ -86,7 +88,7 @@ cd ide-plugin && ./gradlew buildPlugin
 Android Studio → Settings → Plugins → ⚙ → Install Plugin from Disk →
 选 `ide-plugin/build/distributions/android-helper-ide-0.1.0.zip`。
 
-底部会出现 **Android Helper** 工具窗口：选设备 → 选 App → ▶ 连接。
+底部会出现 **DroidLens** 工具窗口：选设备 → 选 App → ▶ 连接。
 连过一次之后，下次打开工具窗口时该 App 在运行就会自动连上；App 重启后自动重连。
 
 - ⚡ 探针：让 App 发一个 HTTPS 请求，确认链路是通的
