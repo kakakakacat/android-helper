@@ -56,7 +56,7 @@ androidhelper/
 
    ```kotlin
    plugins {
-       id("kakacat.android.helper") version "0.1.0"
+       id("kakacat.android.helper") version "0.1.1"
    }
    ```
 
