@@ -42,8 +42,12 @@ jobs:
             exit 1
           fi
           if [ -d "mvn-repo/kakacat/android/helper/runtime-core/${VERSION}" ]; then
-            echo "::error::${VERSION} is already in mvn-repo; bump helper.version (republishing a version breaks consumers' caches)"
-            exit 1
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              echo "::error::${VERSION} is already in mvn-repo; bump helper.version (republishing a version breaks consumers' caches)"
+              exit 1
+            fi
+            # 演练：照样在 runner 上编译发布，只是不提交
+            echo "::warning::${VERSION} is already in mvn-repo; dry run only"
           fi
 
       - name: Build and publish to mvn-repo/
