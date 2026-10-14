@@ -33,13 +33,21 @@ gh repo create kakakakacat/android-helper --public --source . --remote origin
 
 1. 用 JetBrains 账号登录 <https://plugins.jetbrains.com>，同意开发者协议，创建 Vendor。
    `ide-plugin/src/main/resources/META-INF/plugin.xml` 里的 `<vendor>` 要和它一致。
-2. （推荐）生成签名证书。私钥只放在本机或 CI 的密钥里，**不要提交**：
+2. 签名证书（已在 2026-10-14 生成过，有效期到 2036 年；换电脑时才需要重新生成或迁移）：
+
+   - 证书和**加密的**私钥：`~/.android-helper-signing/chain.crt`、`private_encrypted.pem`
+   - 私钥密码：macOS 钥匙串，服务名 `android-helper-plugin-signing`
+     （查看：`security find-generic-password -s android-helper-plugin-signing -w`）
+
+   **备份**这个目录和钥匙串里的密码（比如放进密码管理器）。重新生成的方法：
 
    ```bash
-   mkdir -p ~/.android-helper-signing && cd ~/.android-helper-signing
-   openssl genpkey -aes-256-cbc -algorithm RSA -out private_encrypted.pem -pkeyopt rsa_keygen_bits:4096
-   openssl rsa -in private_encrypted.pem -out private.pem
-   openssl req -key private.pem -new -x509 -days 3650 -out chain.crt
+   mkdir -p ~/.android-helper-signing && chmod 700 ~/.android-helper-signing && cd ~/.android-helper-signing
+   export PASS=$(openssl rand -base64 32)
+   security add-generic-password -a kakacat -s android-helper-plugin-signing -w "$PASS" -U
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -aes-256-cbc -pass env:PASS -out private_encrypted.pem
+   openssl req -new -x509 -days 3650 -key private_encrypted.pem -passin env:PASS -subj "/CN=kakacat/O=kakacat" -out chain.crt
+   chmod 600 private_encrypted.pem; unset PASS
    ```
 
 3. 在 Marketplace 个人页面 → My Tokens 生成一个发布用 token。
@@ -47,12 +55,8 @@ gh repo create kakakakacat/android-helper --public --source . --remote origin
 ### 第一个版本：网页手动上传
 
 ```bash
-cd ide-plugin
-export CERTIFICATE_CHAIN="$(cat ~/.android-helper-signing/chain.crt)"
-export PRIVATE_KEY="$(cat ~/.android-helper-signing/private.pem)"
-export PRIVATE_KEY_PASSWORD="<生成证书时设的密码>"
-./gradlew signPlugin
-# 产物：build/distributions/android-helper-ide-<版本>-signed.zip
+./scripts/sign-plugin.sh
+# 产物：ide-plugin/build/distributions/android-helper-ide-<版本>-signed.zip
 ```
 
 到 <https://plugins.jetbrains.com/plugin/add> 上传这个 zip，选择：
@@ -73,9 +77,8 @@ export PRIVATE_KEY_PASSWORD="<生成证书时设的密码>"
 ./gradlew verifyPlugin -PverifyAndroidStudio=2026.2.1.8    # 只验一个
 ./gradlew verifyPlugin -PverifyAndroidStudio= -PverifyLocal=true   # 只验本机安装的，不下载
 
-# 3. 发布（带上上面三个签名环境变量）
-export PUBLISH_TOKEN="<Marketplace token>"
-./gradlew publishPlugin
+# 3. 签名并发布
+PUBLISH_TOKEN="<Marketplace token>" ./scripts/sign-plugin.sh --publish
 ```
 
 已经审核通过的插件，后续版本通常只走自动检查，几分钟到几小时上线。
