@@ -77,8 +77,9 @@ gh repo create kakakakacat/android-helper --public --source . --remote origin
 ./gradlew verifyPlugin -PverifyAndroidStudio=2026.2.1.8    # 只验一个
 ./gradlew verifyPlugin -PverifyAndroidStudio= -PverifyLocal=true   # 只验本机安装的，不下载
 
-# 3. 签名并发布
-PUBLISH_TOKEN="<Marketplace token>" ./scripts/sign-plugin.sh --publish
+# 3. 签名并发布（token 第一次存进钥匙串，之后不用再管）
+security add-generic-password -a kakacat -s android-helper-marketplace-token -w   # 会提示粘贴 token
+./scripts/sign-plugin.sh --publish
 ```
 
 已经审核通过的插件，后续版本通常只走自动检查，几分钟到几小时上线。
