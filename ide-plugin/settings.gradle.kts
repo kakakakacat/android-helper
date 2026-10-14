@@ -7,3 +7,6 @@ pluginManagement {
 }
 
 rootProject.name = "android-helper-ide"
+
+// adb / 协议 / 数据模型，和 mcp/ 共用
+includeBuild("../client")

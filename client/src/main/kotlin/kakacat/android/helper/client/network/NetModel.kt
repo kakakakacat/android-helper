@@ -1,6 +1,5 @@
-package kakacat.android.helper.ide.network
+package kakacat.android.helper.client.network
 
-import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
@@ -145,23 +144,29 @@ class NetCall(
 }
 
 /** 调用在连上之前就开始了，没收到 start 事件，不知道 URL / 方法名。 */
-private val MISSING_START: String get() = HelperBundle.message("call.missingStart")
+private val MISSING_START: String get() = ClientStrings.missingStart
 
-internal fun JsonObject.str(name: String): String? {
+/** 模型里少量会显示给人看的文字。IDE 插件启动时换成本地化的版本。 */
+object ClientStrings {
+    @Volatile
+    var missingStart: String = "(started before connecting)"
+}
+
+fun JsonObject.str(name: String): String? {
     val e: JsonElement = get(name) ?: return null
     return if (e.isJsonNull) null else e.asString
 }
 
-internal fun JsonObject.long(name: String): Long? {
+fun JsonObject.long(name: String): Long? {
     val e = get(name) ?: return null
     return if (e.isJsonNull) null else runCatching { e.asLong }.getOrNull()
 }
 
-internal fun JsonObject.int(name: String): Int? = long(name)?.toInt()
+fun JsonObject.int(name: String): Int? = long(name)?.toInt()
 
-internal fun JsonObject.bool(name: String): Boolean = get(name)?.takeIf { !it.isJsonNull }?.asBoolean ?: false
+fun JsonObject.bool(name: String): Boolean = get(name)?.takeIf { !it.isJsonNull }?.asBoolean ?: false
 
-internal fun JsonObject.pairs(name: String): List<Pair<String, String>> {
+fun JsonObject.pairs(name: String): List<Pair<String, String>> {
     val o = get(name)?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptyList()
     return o.entrySet().map { (k, v) -> k to (if (v.isJsonNull) "" else if (v.isJsonPrimitive) v.asString else v.toString()) }
 }

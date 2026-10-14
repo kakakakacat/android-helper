@@ -1,7 +1,7 @@
 package kakacat.android.helper.ide
 
 import com.google.gson.JsonParser
-import kakacat.android.helper.ide.layout.LayoutSnapshot
+import kakacat.android.helper.client.layout.LayoutSnapshot
 import kakacat.android.helper.ide.layout.SourceNavigator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

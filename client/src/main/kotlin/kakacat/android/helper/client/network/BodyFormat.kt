@@ -1,4 +1,4 @@
-package kakacat.android.helper.ide.network
+package kakacat.android.helper.client.network
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser

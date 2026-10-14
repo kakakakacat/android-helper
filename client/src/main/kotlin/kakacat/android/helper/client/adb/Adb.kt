@@ -1,6 +1,5 @@
-package kakacat.android.helper.ide.adb
+package kakacat.android.helper.client.adb
 
-import com.intellij.openapi.project.Project
 import java.io.File
 import java.util.Properties
 import java.util.concurrent.TimeUnit
@@ -121,10 +120,11 @@ class Adb(val executable: File) {
          * 找 adb：项目 local.properties 里的 sdk.dir → ANDROID_HOME / ANDROID_SDK_ROOT →
          * 各平台默认 SDK 路径 → PATH。
          */
-        fun locate(project: Project?): Adb? {
+        /** [projectBasePath]：Android 项目根目录（读它的 local.properties），没有就传 null。 */
+        fun locate(projectBasePath: String?): Adb? {
             val name = if (System.getProperty("os.name").lowercase().contains("win")) "adb.exe" else "adb"
             val sdkDirs = buildList {
-                project?.basePath?.let { base -> sdkDirFromLocalProperties(File(base, "local.properties"))?.let(::add) }
+                projectBasePath?.let { base -> sdkDirFromLocalProperties(File(base, "local.properties"))?.let(::add) }
                 System.getenv("ANDROID_HOME")?.let(::add)
                 System.getenv("ANDROID_SDK_ROOT")?.let(::add)
                 val home = System.getProperty("user.home")

@@ -18,8 +18,8 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.util.ui.JBUI
-import kakacat.android.helper.ide.adb.Device
-import kakacat.android.helper.ide.adb.Endpoint
+import kakacat.android.helper.client.adb.Device
+import kakacat.android.helper.client.adb.Endpoint
 import kakacat.android.helper.ide.layout.LayoutPanel
 import kakacat.android.helper.ide.network.NetworkPanel
 import java.awt.BorderLayout
@@ -31,6 +31,7 @@ import javax.swing.SwingUtilities
 class HelperToolWindowFactory : ToolWindowFactory, DumbAware {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        kakacat.android.helper.client.network.ClientStrings.missingStart = HelperBundle.message("call.missingStart")
         val session = HelperSession(project)
         val panel = HelperToolWindow(project, session)
         val content = ContentFactory.getInstance().createContent(panel, "", false)

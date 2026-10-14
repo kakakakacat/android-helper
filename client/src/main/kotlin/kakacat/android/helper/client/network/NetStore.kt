@@ -1,7 +1,7 @@
-package kakacat.android.helper.ide.network
+package kakacat.android.helper.client.network
 
 import com.google.gson.JsonObject
-import kakacat.android.helper.ide.protocol.Frame
+import kakacat.android.helper.client.protocol.Frame
 
 /**
  * 把设备端的帧还原成 [NetCall] 列表。

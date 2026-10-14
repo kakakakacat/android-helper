@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.client.network.*
 import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.GsonBuilder
 import com.intellij.openapi.editor.colors.EditorColorsManager

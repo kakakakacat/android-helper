@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.client.layout.*
 import kakacat.android.helper.ide.HelperBundle
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI

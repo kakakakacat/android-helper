@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.network
 
+import kakacat.android.helper.client.network.*
 import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
 import java.awt.Component

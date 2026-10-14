@@ -37,9 +37,13 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
 
     private val main = Handler(Looper.getMainLooper())
 
-    /** 最近一次抓取的节点表，下标就是节点 id。 */
-    @Volatile
-    private var nodes: List<WeakReference<View>?> = emptyList()
+    /**
+     * 每个客户端最近一次抓取的节点表，下标就是节点 id。
+     *
+     * 必须按客户端分开：IDE 和 MCP（agent）可能同时连着同一个 App，共用一张表的话，
+     * 一方抓取后另一方手里的 id 就指向别的 View 了 —— 改属性会改错对象。
+     */
+    private val nodesByClient = java.util.WeakHashMap<HelperClient, List<WeakReference<View>?>>()
 
     override fun onControl(client: HelperClient, json: JSONObject): Boolean {
         when (json.optString("type")) {
@@ -53,6 +57,8 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
     private fun snapshot(client: HelperClient, req: JSONObject) {
         val reqId = req.optInt("req")
         val maxWidth = req.optInt("maxWidth", 1080)
+        // agent 只看树的时候不需要截图：省掉 PixelCopy + 编码 + 传输
+        val withImages = req.optBoolean("images", true)
         val quality = req.optInt("quality", 80).coerceIn(30, 100)
         val t0 = SystemClock.uptimeMillis()
 
@@ -65,7 +71,7 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
             val shots = ArrayList<Screenshots.Pending?>()
             WindowRoots.roots().forEachIndexed { i, root ->
                 windows.put(inspector.window(root, i))
-                shots.add(Screenshots.start(root))
+                shots.add(if (withImages) Screenshots.start(root) else null)
             }
             Captured(windows, shots, list)
         }
@@ -73,7 +79,7 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
             error(client, "layout.snapshot.result", reqId, "main thread did not respond within 3 s (is the app frozen?)")
             return
         }
-        nodes = captured.nodes
+        synchronized(nodesByClient) { nodesByClient[client] = captured.nodes }
         val tTree = SystemClock.uptimeMillis()
 
         captured.shots.forEachIndexed { i, pending ->
@@ -101,6 +107,7 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
 
     private fun set(client: HelperClient, req: JSONObject) {
         val reqId = req.optInt("req")
+        val nodes = synchronized(nodesByClient) { nodesByClient[client] }.orEmpty()
         val view = nodes.getOrNull(req.optInt("node", -1))?.get()
         if (view == null) {
             error(client, "layout.set.result", reqId, "the view no longer exists; capture again")

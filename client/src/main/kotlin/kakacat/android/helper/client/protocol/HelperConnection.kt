@@ -1,9 +1,9 @@
-package kakacat.android.helper.ide.protocol
+package kakacat.android.helper.client.protocol
 
 import com.google.gson.JsonObject
-import com.intellij.openapi.diagnostic.logger
-import kakacat.android.helper.ide.adb.Adb
-import kakacat.android.helper.ide.adb.Endpoint
+import java.util.logging.Logger
+import kakacat.android.helper.client.adb.Adb
+import kakacat.android.helper.client.adb.Endpoint
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.Socket
@@ -95,6 +95,6 @@ class HelperConnection(
     }
 
     private companion object {
-        val LOG = logger<HelperConnection>()
+        val LOG: Logger = Logger.getLogger(HelperConnection::class.java.name)
     }
 }

@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.client.layout.*
 import kakacat.android.helper.ide.HelperBundle
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -17,7 +18,7 @@ import com.intellij.ui.table.JBTable
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
 import kakacat.android.helper.ide.HelperSession
-import kakacat.android.helper.ide.network.str
+import kakacat.android.helper.client.network.str
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.event.KeyAdapter

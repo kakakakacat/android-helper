@@ -1,5 +1,6 @@
 package kakacat.android.helper.ide.layout
 
+import kakacat.android.helper.client.layout.*
 import kakacat.android.helper.ide.HelperBundle
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType

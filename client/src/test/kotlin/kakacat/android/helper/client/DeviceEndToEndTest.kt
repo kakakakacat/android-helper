@@ -1,10 +1,10 @@
-package kakacat.android.helper.ide
+package kakacat.android.helper.client
 
-import kakacat.android.helper.ide.adb.Adb
-import kakacat.android.helper.ide.network.CallState
-import kakacat.android.helper.ide.network.NetStore
-import kakacat.android.helper.ide.protocol.Frame
-import kakacat.android.helper.ide.protocol.HelperConnection
+import kakacat.android.helper.client.adb.Adb
+import kakacat.android.helper.client.network.CallState
+import kakacat.android.helper.client.network.NetStore
+import kakacat.android.helper.client.protocol.Frame
+import kakacat.android.helper.client.protocol.HelperConnection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -111,12 +111,12 @@ class DeviceEndToEndTest {
         }
 
         val (result, blobs) = request(com.google.gson.JsonParser.parseString("""{"type":"layout.snapshot","req":1}""").asJsonObject)
-        val snap = kakacat.android.helper.ide.layout.LayoutSnapshot.parse(result)
+        val snap = kakacat.android.helper.client.layout.LayoutSnapshot.parse(result)
         assertTrue(snap.windows.isNotEmpty())
         val image = javax.imageio.ImageIO.read(blobs.getValue("layout:1:0").inputStream())
         assertNotNull("截图应能被 ImageIO 解码", image)
 
-        var getJson: kakacat.android.helper.ide.layout.LNode? = null
+        var getJson: kakacat.android.helper.client.layout.LNode? = null
         snap.windows.forEach { w -> w.root.walk { if (it.text == "GET json") getJson = it } }
         val button = getJson!!
         assertTrue(button.sources["created"]!!.contains("MainActivity.kt:"))
@@ -133,7 +133,7 @@ class DeviceEndToEndTest {
         assertEquals(false, bad.get("ok").asBoolean)
 
         val (again, _) = request(com.google.gson.JsonParser.parseString("""{"type":"layout.snapshot","req":4}""").asJsonObject)
-        val snap2 = kakacat.android.helper.ide.layout.LayoutSnapshot.parse(again)
+        val snap2 = kakacat.android.helper.client.layout.LayoutSnapshot.parse(again)
         val w = snap.windowOf(button)!!.index
         assertEquals("edited", snap2.findByPath(w, button.path)!!.text)
 

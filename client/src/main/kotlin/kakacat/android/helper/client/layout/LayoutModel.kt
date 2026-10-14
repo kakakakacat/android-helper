@@ -1,10 +1,10 @@
-package kakacat.android.helper.ide.layout
+package kakacat.android.helper.client.layout
 
 import com.google.gson.JsonObject
-import kakacat.android.helper.ide.network.bool
-import kakacat.android.helper.ide.network.int
-import kakacat.android.helper.ide.network.long
-import kakacat.android.helper.ide.network.str
+import kakacat.android.helper.client.network.bool
+import kakacat.android.helper.client.network.int
+import kakacat.android.helper.client.network.long
+import kakacat.android.helper.client.network.str
 import java.awt.Rectangle
 import java.awt.image.BufferedImage
 

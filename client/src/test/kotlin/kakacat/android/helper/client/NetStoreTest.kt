@@ -1,15 +1,15 @@
-package kakacat.android.helper.ide
+package kakacat.android.helper.client
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.protobuf.DescriptorProtos
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto
-import kakacat.android.helper.ide.network.CallState
-import kakacat.android.helper.ide.network.Kind
-import kakacat.android.helper.ide.network.NetStore
-import kakacat.android.helper.ide.network.ProtoRegistry
-import kakacat.android.helper.ide.protocol.Frame
-import kakacat.android.helper.ide.protocol.FrameReader
+import kakacat.android.helper.client.network.CallState
+import kakacat.android.helper.client.network.Kind
+import kakacat.android.helper.client.network.NetStore
+import kakacat.android.helper.client.network.ProtoRegistry
+import kakacat.android.helper.client.protocol.Frame
+import kakacat.android.helper.client.protocol.FrameReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

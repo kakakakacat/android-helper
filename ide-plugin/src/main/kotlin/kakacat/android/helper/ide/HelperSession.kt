@@ -5,13 +5,13 @@ import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
-import kakacat.android.helper.ide.adb.Adb
-import kakacat.android.helper.ide.adb.Endpoint
-import kakacat.android.helper.ide.network.NetStore
-import kakacat.android.helper.ide.network.int
-import kakacat.android.helper.ide.network.str
-import kakacat.android.helper.ide.protocol.Frame
-import kakacat.android.helper.ide.protocol.HelperConnection
+import kakacat.android.helper.client.adb.Adb
+import kakacat.android.helper.client.adb.Endpoint
+import kakacat.android.helper.client.network.NetStore
+import kakacat.android.helper.client.network.int
+import kakacat.android.helper.client.network.str
+import kakacat.android.helper.client.protocol.Frame
+import kakacat.android.helper.client.protocol.HelperConnection
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.swing.SwingUtilities
 import javax.swing.Timer
@@ -86,7 +86,7 @@ class HelperSession(val project: Project) : Disposable {
         listeners.add(l)
     }
 
-    fun adb(): Adb? = Adb.locate(project)
+    fun adb(): Adb? = Adb.locate(project.basePath)
 
     fun connect(target: Endpoint) {
         val adb = adb() ?: run {

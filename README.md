@@ -8,6 +8,7 @@
 |---|---|---|
 | **Network** | 应用层抓包：OkHttp（HTTP/HTTPS 明文）、gRPC（含流式消息）、WebSocket（上下行帧） | ✅ |
 | **Layout** | 截图 + View / Compose 树、属性查看与实时修改、一键跳到源码（移植 CodeLocator） | ✅ |
+| **MCP** | 给 AI agent 用：以文本读写 View 树、点击/输入、查看抓包，不依赖截图 | ✅ |
 
 ## 目录
 
@@ -19,7 +20,10 @@ androidhelper/
 │   ├── runtime-layout/      窗口枚举、View 树 / Compose 语义树、PixelCopy 截图、属性修改
 │   ├── gradle-plugin/       id("kakacat.android.helper")：按 build type 加依赖 + ASM 插桩
 │   └── sample/              示例 App（造流量、XML + 代码混合布局、Dialog、Compose 页面）
-├── ide-plugin/              Android Studio 插件（独立 Gradle build，Swing 原生 UI）
+├── client/                  和 IDE 无关的客户端：adb、帧协议、连接、抓包 / 布局数据模型
+├── ide-plugin/              Android Studio 插件（Swing 原生 UI），依赖 client
+├── mcp/                     MCP 服务（给 agent 用），依赖 client，独立于 Android Studio 运行
+├── mvn-repo/                已发布的 SDK（raw.githubusercontent.com 直接读）
 └── CodeLocator/             字节 CodeLocator 上游源码，仅供参考，不参与构建
 ```
 
@@ -121,6 +125,52 @@ Android Studio → Settings → Plugins → ⚙ → Install Plugin from Disk →
 - 老的网页控制台可以直接连新 SDK；
 - IDE 插件也能连只接了老 netcapture SDK 的 App（列表里显示为 `<pkg> (netcapture)`）。
 
+## MCP（给 AI agent 用）
+
+让 Claude Code、Cursor 等 agent 直接读写运行中 App 的界面和网络请求。View 树以紧凑文本返回，
+每行一个 View，带 id、坐标、文字和**源码位置**：
+
+```
+== window 0 Activity MainActivity [0,0 640x960]
+[3] LinearLayout (0,160 640x752) layout=activity_main inflated=MainActivity.kt:32
+  [4] TextView#title "Android Helper Sample" (48,256 526x75)
+  [5] LinearLayout#buttons (48,355 544x557)
+    [6] Button "GET json" (48,355 544x96) clickable created=MainActivity.kt:71 click=MainActivity.kt:74
+```
+
+agent 拿着 `[6]` 就能改属性、点击，拿着 `MainActivity.kt:74` 就能直接打开代码 —— 不用看截图猜。
+截图工具仍然有，留给"颜色 / 图片 / 重叠"这类必须看图的问题。
+
+**安装**：从 [Releases](https://github.com/kakakakacat/android-helper/releases) 下载 `android-helper-mcp.jar`，
+或者 `cd mcp && ./gradlew fatJar`（产物在 `mcp/build/libs/`）。需要 Java 17+，Android Studio 自带的就行
+（macOS：`/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java`）。
+
+```bash
+# Claude Code
+claude mcp add android-helper -- java -jar /path/to/android-helper-mcp.jar
+```
+
+```json
+// Cursor 等：mcp.json
+{ "mcpServers": { "android-helper": { "command": "java", "args": ["-jar", "/path/to/android-helper-mcp.jar"] } } }
+```
+
+adb 自动查找（`ANDROID_HOME` / 默认 SDK 路径 / PATH），也可以加参数 `--adb /path/to/adb`。
+
+| 工具 | 作用 |
+|---|---|
+| `list_devices` / `list_apps` | 设备、接入了 SDK 的运行中 App |
+| `get_view_tree` | View / Compose 树（文本），可指定子树 `root_id`、深度、是否含隐藏 View |
+| `find_views` | 按文字 / id / 类名 / contentDescription 找 View，带父路径 |
+| `get_view` | 一个 View 的全部属性、源码位置、父子节点、可修改的属性 |
+| `set_view_property` | 运行时改属性（text、visibility、padding、颜色、宽高……），改完自动重新抓取 |
+| `tap` / `input_text` / `press_key` | 按 View id 点击、输入、按键（走 adb input） |
+| `screenshot` | 截图（可缩小），只在需要看视觉效果时用 |
+| `list_requests` / `get_request` / `clear_requests` | 抓包：请求列表、详情（头、body、gRPC / WebSocket 消息） |
+
+不传 `app` / `device` 时自动选：只有一台设备、一个 App 就用它，否则沿用上次的，再不行就报错并列出候选。
+抓包从 MCP 第一次连上 App 开始记录。IDE 插件和 MCP 可以同时连同一个 App，互不影响。
+
 ## 设计要点
 
 - **设备侧零暴露面**：只开 abstract LocalSocket，不监听 TCP 端口。
@@ -142,10 +192,17 @@ adb shell am start -n kakacat.android.helper.sample/.MainActivity --ez burst tru
 adb shell am start -n kakacat.android.helper.sample/.MainActivity --ez dialog true   # 弹 Dialog
 adb shell am start -n kakacat.android.helper.sample/.ComposeActivity                 # Compose 页面
 
-# IDE 插件
-cd ide-plugin
+# 客户端库（协议 / 模型）
+cd client
 ./gradlew test                                   # 单元测试
 ANDROIDHELPER_E2E=1 ./gradlew test               # 加上真机端到端（需要设备上跑着 sample）
+
+# MCP
+cd mcp && ./gradlew test fatJar
+
+# IDE 插件
+cd ide-plugin
+./gradlew test buildPlugin
 ./gradlew runIde -PdemoProject=$PWD/../sdk \
     -PautoConnect=kakacat.android.helper.sample \
     -PdemoTab=Layout -PdemoSelect="GET json" -PdemoJump=click

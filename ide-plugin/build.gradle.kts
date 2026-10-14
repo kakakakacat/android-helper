@@ -17,6 +17,7 @@ dependencies {
         // 而且编译时看到的 API 就是运行时的 API。
         local(providers.gradleProperty("androidStudioPath"))
     }
+    implementation("kakacat.android.helper:client")
     testImplementation("junit:junit:4.13.2")
 }
 
