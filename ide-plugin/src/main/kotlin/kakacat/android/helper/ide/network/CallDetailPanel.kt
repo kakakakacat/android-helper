@@ -56,6 +56,11 @@ class CallDetailPanel(private val protoRegistry: () -> ProtoRegistry?) : JPanel(
         showEmpty()
     }
 
+    /** 切到指定标题的标签（不存在就不动）。 */
+    fun selectTab(title: String) {
+        (0 until tabs.tabCount).firstOrNull { tabs.getTitleAt(it) == title }?.let { tabs.selectedIndex = it }
+    }
+
     fun show(c: NetCall?) {
         call = c
         if (c == null) {

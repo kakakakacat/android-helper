@@ -44,6 +44,12 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
     private var registry: ProtoRegistry? = null
     private val detail = CallDetailPanel { registry }
 
+    /**
+     * 整表刷新（fireTableDataChanged）会先清掉选择再由我们恢复；这期间的选择事件不能传给详情页，
+     * 否则详情页会先被清空、再重建，用户正在看的 Response 标签会跳回 Overview。
+     */
+    private var restoringSelection = false
+
     /** 有新行时滚到底；用户往上翻看的时候不打扰。 */
     private var followTail = true
 
@@ -65,7 +71,7 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
         }
 
         table.selectionModel.addListSelectionListener { e ->
-            if (!e.valueIsAdjusting) detail.show(selectedCall())
+            if (!e.valueIsAdjusting && !restoringSelection) detail.show(selectedCall())
         }
         table.addMouseListener(object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) = maybePopup(e)
@@ -108,6 +114,22 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
     }
 
     /** 开发用：`-Dandroidhelper.demoCycle=true` 时每 5 秒自动选下一行，方便无人值守地截图检查详情页。 */
+    /**
+     * 开发用（截图）：`-Dandroidhelper.demoNetSelect=/json -Dandroidhelper.demoDetailTab=Response`
+     * —— 第一条 URL 包含该文本、且已完成的请求出现时选中它并切到指定标签，只做一次。
+     */
+    private var demoSelected = false
+
+    private fun demoSelect() {
+        if (demoSelected) return
+        val needle = System.getProperty("androidhelper.demoNetSelect") ?: return
+        val call = store.calls.firstOrNull { it.url?.contains(needle) == true && it.respBody != null } ?: return
+        val viewRow = table.convertRowIndexToView(model.rowOf(call)).takeIf { it >= 0 } ?: return
+        demoSelected = true
+        table.setRowSelectionInterval(viewRow, viewRow)
+        System.getProperty("androidhelper.demoDetailTab")?.let { detail.selectTab(it) }
+    }
+
     private fun startDemoCycle() {
         if (System.getProperty("androidhelper.demoCycle") != "true") return
         javax.swing.Timer(5000) {
@@ -122,6 +144,7 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
             registry = store.descriptors?.let { ProtoRegistry.from(it) }
         }
         val selected = selectedCall()
+        restoringSelection = true
         if (changes.removed > 0) {
             model.fireTableDataChanged()
         } else {
@@ -138,13 +161,18 @@ class NetworkPanel(private val session: HelperSession) : JPanel(BorderLayout()),
             if (row >= 0) {
                 val viewRow = table.convertRowIndexToView(row)
                 if (viewRow >= 0 && table.selectedRow != viewRow) table.setRowSelectionInterval(viewRow, viewRow)
+                restoringSelection = false
                 if (selected in changes.updated) detail.refresh()
             } else {
+                restoringSelection = false
                 detail.show(null)
             }
         } else if (changes.removed > 0) {
+            restoringSelection = false
             detail.show(null)
         }
+        restoringSelection = false
+        demoSelect()
         if (changes.added > 0 && followTail && table.rowCount > 0) {
             SwingUtilities.invokeLater {
                 table.scrollRectToVisible(table.getCellRect(table.rowCount - 1, 0, true))

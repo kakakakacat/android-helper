@@ -2,6 +2,9 @@
 
 > Android Studio 插件在 JetBrains Marketplace 上的名字是 **DroidLens**；仓库、SDK 坐标和 MCP 服务沿用 android-helper 这个名字。
 
+![Network](ide-plugin/marketplace/screenshots/1-network.png)
+![Layout](ide-plugin/marketplace/screenshots/2-layout.png)
+
 在 Android Studio 里直接调试运行中的 debug 包，不用开网页、不用配代理。
 
 目前完成的能力：

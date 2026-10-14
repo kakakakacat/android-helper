@@ -97,5 +97,8 @@ tasks.named<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIde") {
     providers.gradleProperty("demoTab").orNull?.let { jvmArgs("-Dandroidhelper.demoTab=$it") }
     providers.gradleProperty("demoSelect").orNull?.let { jvmArgs("-Dandroidhelper.demoSelect=$it") }
     providers.gradleProperty("demoJump").orNull?.let { jvmArgs("-Dandroidhelper.demoJump=$it") }
+    providers.gradleProperty("demoNetSelect").orNull?.let { jvmArgs("-Dandroidhelper.demoNetSelect=$it") }
+    providers.gradleProperty("demoDetailTab").orNull?.let { jvmArgs("-Dandroidhelper.demoDetailTab=$it") }
+    providers.gradleProperty("demoLocale").orNull?.let { jvmArgs("-Dandroidhelper.locale=$it") }
     providers.gradleProperty("autoConnect").orNull?.let { jvmArgs("-Dandroidhelper.autoConnect=$it") }
 }
