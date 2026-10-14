@@ -23,7 +23,10 @@ class HelperStartupActivity : ProjectActivity {
             val tw = ToolWindowManager.getInstance(project).getToolWindow(TOOL_WINDOW_ID) ?: return@invokeLater
             tw.isShowStripeButton = true
             props.setValue(SHOWN_KEY, true)
-            if (autoOpen) tw.show()
+            if (autoOpen) {
+                tw.show()
+                ToolWindowManager.getInstance(project).setMaximized(tw, true)
+            }
         }
     }
 

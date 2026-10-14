@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 rootProject.name = "android-helper-sdk"
 include(":runtime-core")
 include(":runtime-network")
+include(":runtime-layout")
 include(":sample")

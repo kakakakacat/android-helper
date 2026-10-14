@@ -36,9 +36,13 @@ abstract class HelperReportTask : DefaultTask() {
 
         for (file in hits) {
             val lines = file.readLines().filter { it.isNotBlank() }.distinct().sorted()
+            if (file.name.endsWith("-layout-hits.txt")) {
+                reportLayout(file.name.removeSuffix("-layout-hits.txt"), lines)
+                continue
+            }
             val byHook = lines.groupingBy { it.substringAfterLast("→ ").trim() }.eachCount()
             logger.lifecycle("")
-            logger.lifecycle("androidHelper 插桩报告 · ${file.name.removeSuffix("-hits.txt")}")
+            logger.lifecycle("androidHelper 网络插桩 · ${file.name.removeSuffix("-hits.txt")}")
             logger.lifecycle("  命中 ${lines.size} 处：" +
                 byHook.entries.sortedByDescending { it.value }.joinToString(", ") { "${it.key} ×${it.value}" })
             for (line in lines) logger.lifecycle("    $line")
@@ -47,5 +51,23 @@ abstract class HelperReportTask : DefaultTask() {
                     "把 androidHelper { scope = \"all\" } 打开")
             }
         }
+    }
+
+    /** 布局插桩命中点通常很多（每个 new View 都算），按 hook 汇总，只列前 30 个类。 */
+    private fun reportLayout(variant: String, lines: List<String>) {
+        val totals = HashMap<String, Int>()
+        for (line in lines) {
+            for (part in line.substringAfter("→ ").split(", ")) {
+                val name = part.substringBefore('×').trim()
+                val n = part.substringAfter('×', "1").trim().toIntOrNull() ?: 1
+                totals.merge(name, n, Int::plus)
+            }
+        }
+        logger.lifecycle("")
+        logger.lifecycle("androidHelper 布局插桩 · $variant")
+        logger.lifecycle("  ${lines.size} 个类，" +
+            totals.entries.sortedByDescending { it.value }.joinToString(", ") { "${it.key} ×${it.value}" })
+        for (line in lines.take(30)) logger.lifecycle("    $line")
+        if (lines.size > 30) logger.lifecycle("    …另外 ${lines.size - 30} 个类")
     }
 }

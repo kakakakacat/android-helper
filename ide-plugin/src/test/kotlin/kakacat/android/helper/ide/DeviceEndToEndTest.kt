@@ -74,4 +74,72 @@ class DeviceEndToEndTest {
         // 自己建的 forward 应该被清理掉（IDE 里可能同时连着，所以只和连接前比）
         assertEquals(forwardsBefore, forwards())
     }
+
+    /**
+     * 布局：抓取 → 截图能解码、树里有带源码位置的按钮 → 改属性 → 再抓取能看到变化。
+     */
+    @Test
+    fun layoutSnapshotAndEdit() {
+        assumeTrue(System.getenv("ANDROIDHELPER_E2E") == "1")
+        val adb = Adb.locate(null)!!
+        val device = adb.devices().first { it.online }
+        adb.run("-s", device.serial, "shell", "am", "start", "-n", "$pkg/.MainActivity")
+        Thread.sleep(1500)
+        val endpoint = adb.endpoints(device.serial).first { it.pkg == pkg }
+
+        val frames = LinkedBlockingQueue<Frame>()
+        val conn = HelperConnection(adb, endpoint, object : HelperConnection.Listener {
+            override fun onFrame(frame: Frame) { frames.add(frame) }
+            override fun onClosed(error: Throwable?) {}
+        })
+        conn.start()
+        val hello = frames.poll(10, TimeUnit.SECONDS) as Frame.Control
+        assertTrue(hello.json.getAsJsonArray("features").any { it.asString == "layout" })
+
+        fun request(json: com.google.gson.JsonObject): Pair<com.google.gson.JsonObject, Map<String, ByteArray>> {
+            conn.sendControl(json)
+            val blobs = HashMap<String, ByteArray>()
+            val deadline = System.currentTimeMillis() + 15_000
+            while (System.currentTimeMillis() < deadline) {
+                when (val f = frames.poll(500, TimeUnit.MILLISECONDS)) {
+                    is Frame.Blob -> if (f.ref.startsWith("layout:")) blobs[f.ref] = f.bytes
+                    is Frame.Control -> if (f.json.get("req")?.asInt == json.get("req").asInt) return f.json to blobs
+                    else -> Unit
+                }
+            }
+            throw AssertionError("no response for $json")
+        }
+
+        val (result, blobs) = request(com.google.gson.JsonParser.parseString("""{"type":"layout.snapshot","req":1}""").asJsonObject)
+        val snap = kakacat.android.helper.ide.layout.LayoutSnapshot.parse(result)
+        assertTrue(snap.windows.isNotEmpty())
+        val image = javax.imageio.ImageIO.read(blobs.getValue("layout:1:0").inputStream())
+        assertNotNull("截图应能被 ImageIO 解码", image)
+
+        var getJson: kakacat.android.helper.ide.layout.LNode? = null
+        snap.windows.forEach { w -> w.root.walk { if (it.text == "GET json") getJson = it } }
+        val button = getJson!!
+        assertTrue(button.sources["created"]!!.contains("MainActivity.kt:"))
+        assertTrue(button.sources["click"]!!.contains("MainActivity.kt:"))
+        var layoutRoot = button.parent
+        while (layoutRoot != null && layoutRoot.sources["layout"] == null) layoutRoot = layoutRoot.parent
+        assertEquals("activity_main", layoutRoot!!.sources["layout"])
+
+        val (set, _) = request(com.google.gson.JsonParser.parseString(
+            """{"type":"layout.set","req":2,"node":${button.id},"key":"text","value":"edited"}""").asJsonObject)
+        assertEquals(true, set.get("ok").asBoolean)
+        val (bad, _) = request(com.google.gson.JsonParser.parseString(
+            """{"type":"layout.set","req":3,"node":${button.id},"key":"padding","value":"1,2"}""").asJsonObject)
+        assertEquals(false, bad.get("ok").asBoolean)
+
+        val (again, _) = request(com.google.gson.JsonParser.parseString("""{"type":"layout.snapshot","req":4}""").asJsonObject)
+        val snap2 = kakacat.android.helper.ide.layout.LayoutSnapshot.parse(again)
+        val w = snap.windowOf(button)!!.index
+        assertEquals("edited", snap2.findByPath(w, button.path)!!.text)
+
+        // 恢复原样，不影响下一次测试
+        request(com.google.gson.JsonParser.parseString(
+            """{"type":"layout.set","req":5,"node":${button.id},"key":"text","value":"GET json"}""").asJsonObject)
+        conn.close()
+    }
 }

@@ -21,7 +21,8 @@ import org.gradle.api.provider.SetProperty
  *
  *  1. 只给白名单里的 build type（默认 debug）**加运行时 AAR 依赖** ——
  *     release 里连这个 AAR 都不存在，这是比任何运行时开关都硬的隔离；
- *  2. 注册 ASM 插桩，把 OkHttp / gRPC / WebSocket 的调用点改写成对 `Hooks` 的调用；
+ *  2. 注册 ASM 插桩：网络调用点改写成对 `Hooks` 的调用（抓包）；View 的创建 / 监听 /
+ *     inflate 调用点记下源码位置（布局检查里一键跳转）；
  *  3. 输出插桩报告，说明命中了哪些调用点 —— 抓不到数据时第一件事就是看它。
  */
 class HelperPlugin : Plugin<Project> {
@@ -33,6 +34,7 @@ class HelperPlugin : Plugin<Project> {
             scope.convention("all")
             excludes.convention(emptyList())
             network.convention(true)
+            layout.convention(true)
             runtimeVersion.convention(SDK_VERSION)
         }
 
@@ -61,6 +63,17 @@ class HelperPlugin : Plugin<Project> {
                 addRuntimeDependency(project, variant, "runtime-network", ext)
                 instrumentNetwork(project, variant, ext)
             }
+            if (ext.layout.get()) {
+                addRuntimeDependency(project, variant, "runtime-layout", ext)
+                instrumentLayout(project, variant, ext)
+            }
+            if (ext.network.get() || ext.layout.get()) {
+                // 我们只替换 / 追加 invoke 指令。COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS 只对
+                // 被改过的方法重算 frame 和 maxStack（layout 插桩会多压栈），代价很小。
+                variant.instrumentation.setAsmFramesComputationMode(
+                    FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS
+                )
+            }
             report.configure { it.dependsOn("assemble${variant.name.capitalizeAscii()}") }
         }
     }
@@ -88,11 +101,7 @@ class HelperPlugin : Plugin<Project> {
     }
 
     private fun instrumentNetwork(project: Project, variant: Variant, ext: HelperExtension) {
-        val scope = when (ext.scope.get().lowercase()) {
-            "all" -> InstrumentationScope.ALL
-            else -> InstrumentationScope.PROJECT
-        }
-
+        val scope = scope(ext)
         variant.instrumentation.transformClassesWith(
             NetworkClassVisitorFactory::class.java,
             scope
@@ -105,14 +114,27 @@ class HelperPlugin : Plugin<Project> {
             params.excludes.set(ext.excludes.get())
         }
 
-        // 我们只替换 invoke 指令，栈形状和原调用完全一致，理论上不需要重算 frame。
-        // COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS 只对被改过的方法生效，代价很小，
-        // 换来的是"以后加了需要改栈的插桩也不会炸"。
-        variant.instrumentation.setAsmFramesComputationMode(
-            FramesComputationMode.COMPUTE_FRAMES_FOR_INSTRUMENTED_METHODS
-        )
+        project.logger.info("androidHelper: 网络插桩 ${variant.name}（scope=$scope）")
+    }
 
-        project.logger.info("androidHelper: 插桩 ${variant.name}（scope=$scope）")
+    private fun instrumentLayout(project: Project, variant: Variant, ext: HelperExtension) {
+        variant.instrumentation.transformClassesWith(
+            LayoutClassVisitorFactory::class.java,
+            scope(ext)
+        ) { params ->
+            params.hitFilePath.set(
+                project.layout.buildDirectory
+                    .file("reports/androidhelper/${variant.name}-layout-hits.txt")
+                    .get().asFile.absolutePath
+            )
+            params.excludes.set(ext.excludes.get())
+        }
+        project.logger.info("androidHelper: 布局插桩 ${variant.name}")
+    }
+
+    private fun scope(ext: HelperExtension) = when (ext.scope.get().lowercase()) {
+        "all" -> InstrumentationScope.ALL
+        else -> InstrumentationScope.PROJECT
     }
 
     private fun String.capitalizeAscii(): String =
@@ -152,6 +174,12 @@ interface HelperExtension {
 
     /** 抓包能力。关掉后不加 runtime-network、也不插桩网络调用点。 */
     val network: Property<Boolean>
+
+    /**
+     * 布局检查能力：加 runtime-layout，并插桩记录 View 的创建位置、点击监听、布局文件、
+     * Dialog 弹出位置，供 IDE 一键跳转。
+     */
+    val layout: Property<Boolean>
 
     /** 运行时 AAR 版本。默认跟随插件版本，一般不用改。 */
     val runtimeVersion: Property<String>

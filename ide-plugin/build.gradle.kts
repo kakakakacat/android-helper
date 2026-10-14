@@ -48,5 +48,8 @@ tasks.named<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIde") {
     providers.gradleProperty("demoProject").orNull?.let { args(listOf(it)) }
     jvmArgs("-Dandroidhelper.openOnStartup=true", "-Didea.trust.all.projects=true")
     providers.gradleProperty("demoCycle").orNull?.let { jvmArgs("-Dandroidhelper.demoCycle=$it") }
+    providers.gradleProperty("demoTab").orNull?.let { jvmArgs("-Dandroidhelper.demoTab=$it") }
+    providers.gradleProperty("demoSelect").orNull?.let { jvmArgs("-Dandroidhelper.demoSelect=$it") }
+    providers.gradleProperty("demoJump").orNull?.let { jvmArgs("-Dandroidhelper.demoJump=$it") }
     providers.gradleProperty("autoConnect").orNull?.let { jvmArgs("-Dandroidhelper.autoConnect=$it") }
 }

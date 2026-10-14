@@ -1,6 +1,7 @@
 package kakacat.android.helper.sample
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
@@ -28,18 +29,18 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        log = TextView(this)
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 96, 48, 48)
-        }
-        root.addView(button("GET json") { get("https://httpbin.org/json") })
-        root.addView(button("GET 404") { get("https://httpbin.org/status/404") })
-        root.addView(button("POST json") { postJson() })
-        root.addView(button("GET image") { get("https://httpbin.org/image/png") })
-        root.addView(button("WebSocket echo") { webSocket() })
-        root.addView(log)
-        setContentView(root)
+        setContentView(R.layout.activity_main)
+        log = findViewById(R.id.log)
+        val buttons = findViewById<LinearLayout>(R.id.buttons)
+        buttons.addView(button("GET json") { get("https://httpbin.org/json") })
+        buttons.addView(button("GET 404") { get("https://httpbin.org/status/404") })
+        buttons.addView(button("POST json") { postJson() })
+        buttons.addView(button("GET image") { get("https://httpbin.org/image/png") })
+        buttons.addView(button("WebSocket echo") { webSocket() })
+        buttons.addView(button("Show dialog") { showDialog() })
+        buttons.addView(button("Compose screen") {
+            startActivity(android.content.Intent(this, ComposeActivity::class.java))
+        })
         burstIfAsked(intent)
     }
 
@@ -51,8 +52,13 @@ class MainActivity : Activity() {
     /**
      * 不点屏幕也能造一批流量，方便联调 / 自动化测试：
      * `adb shell am start -n kakacat.android.helper.sample/.MainActivity --ez burst true`
+     * （`--ez dialog true` 弹一个 Dialog，用来验证多窗口）
      */
     private fun burstIfAsked(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra("dialog", false) == true) {
+            intent.removeExtra("dialog")
+            showDialog()
+        }
         if (intent?.getBooleanExtra("burst", false) != true) return
         intent.removeExtra("burst")
         get("https://httpbin.org/json")
@@ -66,6 +72,14 @@ class MainActivity : Activity() {
         this.text = text
         isAllCaps = false
         setOnClickListener { onClick() }
+    }
+
+    private fun showDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Hello")
+            .setMessage("这个 Dialog 是在 MainActivity.showDialog() 里弹出的")
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun get(url: String) {

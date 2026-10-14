@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- View.setTag(key, …) 的 key：存插桩记下的源码位置，见 ViewSources -->
+    <item name="androidhelper_view_source" type="id" />
+</resources>

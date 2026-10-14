@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 和 runtime-core 一样靠清单合并自动生效；release 里不存在这个 AAR，见 Gradle 插件。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <provider
+            android:name="kakacat.android.helper.layout.LayoutInitProvider"
+            android:authorities="${applicationId}.androidhelper.layout"
+            android:exported="false"
+            android:multiprocess="true" />
+    </application>
+
+</manifest>

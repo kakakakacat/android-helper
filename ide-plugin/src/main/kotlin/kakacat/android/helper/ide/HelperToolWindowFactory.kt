@@ -20,6 +20,7 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.util.ui.JBUI
 import kakacat.android.helper.ide.adb.Device
 import kakacat.android.helper.ide.adb.Endpoint
+import kakacat.android.helper.ide.layout.LayoutPanel
 import kakacat.android.helper.ide.network.NetworkPanel
 import java.awt.BorderLayout
 import java.awt.FlowLayout
@@ -105,7 +106,14 @@ class HelperToolWindow(private val project: Project, private val session: Helper
         add(bar, BorderLayout.NORTH)
 
         val tabs = JBTabbedPane()
+        val layout = LayoutPanel(session)
         tabs.addTab("Network", NetworkPanel(session))
+        tabs.addTab("Layout", layout)
+        tabs.addChangeListener { if (tabs.selectedComponent === layout) layout.onShown() }
+        // 开发用：-Dandroidhelper.demoTab=Layout
+        System.getProperty("androidhelper.demoTab")?.let { title ->
+            (0 until tabs.tabCount).firstOrNull { tabs.getTitleAt(it) == title }?.let { tabs.selectedIndex = it }
+        }
         add(tabs, BorderLayout.CENTER)
 
         session.addListener(this)

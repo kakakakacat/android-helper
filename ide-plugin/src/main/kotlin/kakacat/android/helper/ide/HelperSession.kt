@@ -59,6 +59,19 @@ class HelperSession(val project: Project) : Disposable {
             ?: PropertiesComponent.getInstance(project).getValue(LAST_PACKAGE_KEY)
         private set(value) = PropertiesComponent.getInstance(project).setValue(LAST_PACKAGE_KEY, value)
 
+    /** 设备对一次请求的回复：结果控制帧 + 同一请求附带的 BLOB（比如截图），key 是 ref。 */
+    class Response(val json: JsonObject, val blobs: Map<String, ByteArray>) {
+        val ok: Boolean get() = json.get("ok")?.takeIf { !it.isJsonNull }?.asBoolean ?: true
+        val error: String? get() = json.str("error")
+    }
+
+    private class Pending(val callback: (Result<Response>) -> Unit, val deadline: Long) {
+        val blobs = LinkedHashMap<String, ByteArray>()
+    }
+
+    private var nextReq = 1
+    private val pending = HashMap<Int, Pending>()
+
     private val listeners = mutableListOf<Listener>()
     private val inbox = ConcurrentLinkedQueue<Pair<Frame, Int>>()
     private var connection: HelperConnection? = null
@@ -81,6 +94,7 @@ class HelperSession(val project: Project) : Disposable {
             return
         }
         connection?.close()
+        failPending("重新连接")
         val gen = ++generation
         endpoint = target
         lastPackage = target.pkg
@@ -105,8 +119,36 @@ class HelperSession(val project: Project) : Disposable {
         conn.start()
     }
 
+    /**
+     * 发一个请求（如 `layout.snapshot`），回调在 EDT 上。设备的回复是 `type` 以 `.result`
+     * 结尾、带同一个 `req` 的控制帧；回复之前到达的 `<feature>:<req>:…` BLOB 一并交给回调。
+     */
+    fun request(json: JsonObject, timeoutMs: Long = 15_000, callback: (Result<Response>) -> Unit) {
+        val conn = connection
+        if (conn == null || state != State.CONNECTED) {
+            callback(Result.failure(IllegalStateException("没有连接到 App")))
+            return
+        }
+        val req = nextReq++
+        json.addProperty("req", req)
+        pending[req] = Pending(callback, System.currentTimeMillis() + timeoutMs)
+        conn.sendControl(json)
+    }
+
+    /** 当前连接的 App 是否支持某个能力（看 hello 里的 features）。老 netcapture SDK 只有抓包。 */
+    fun supports(feature: String): Boolean =
+        hello?.getAsJsonArray("features")?.any { it.asString == feature } == true
+
+    private fun failPending(reason: String) {
+        if (pending.isEmpty()) return
+        val all = pending.values.toList()
+        pending.clear()
+        all.forEach { it.callback(Result.failure(IllegalStateException(reason))) }
+    }
+
     fun disconnect() {
         lastPackage = null
+        failPending("连接已断开")
         generation++
         connection?.close()
         connection = null
@@ -124,6 +166,7 @@ class HelperSession(val project: Project) : Disposable {
     private fun onConnectionClosed(gen: Int, error: Throwable?) {
         if (gen != generation) return
         connection = null
+        failPending("连接已断开")
         val target = endpoint
         val wasConnected = state == State.CONNECTED
         if (error == null || target == null) {
@@ -155,18 +198,45 @@ class HelperSession(val project: Project) : Disposable {
     }
 
     private fun drain() {
+        expireRequests()
         if (inbox.isEmpty()) return
         val changes = NetStore.Changes()
         var budget = 5000 // 单批上限，剩下的留给下一个 tick，保证 EDT 不被一次性占满
         while (budget-- > 0) {
             val (frame, pid) = inbox.poll() ?: break
             if (frame is Frame.Control) {
-                if (frame.json.str("type") == "hello") onHello(frame.json)
+                val type = frame.json.str("type")
+                if (type == "hello") onHello(frame.json)
+                else if (type != null && type.endsWith(".result")) onResult(frame.json)
+                continue
+            }
+            if (frame is Frame.Blob && isRequestBlob(frame.ref)) {
+                val req = frame.ref.split(':').getOrNull(1)?.toIntOrNull()
+                req?.let { pending[it]?.blobs?.put(frame.ref, frame.bytes) }
                 continue
             }
             netStore.apply(frame, pid, changes)
         }
         if (!changes.isEmpty) listeners.forEach { it.onData(changes) }
+    }
+
+    /** `layout:7:0` 这种：feature 名 + 请求号。抓包的 ref 是 `h1:resp`，不会冲突。 */
+    private fun isRequestBlob(ref: String): Boolean = ref.startsWith("layout:")
+
+    private fun onResult(json: JsonObject) {
+        val req = json.int("req") ?: return
+        val p = pending.remove(req) ?: return
+        p.callback(Result.success(Response(json, p.blobs)))
+    }
+
+    private fun expireRequests() {
+        if (pending.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val expired = pending.filterValues { it.deadline < now }
+        for ((req, p) in expired) {
+            pending.remove(req)
+            p.callback(Result.failure(IllegalStateException("App 没有响应（超时）")))
+        }
     }
 
     private fun onHello(json: JsonObject) {

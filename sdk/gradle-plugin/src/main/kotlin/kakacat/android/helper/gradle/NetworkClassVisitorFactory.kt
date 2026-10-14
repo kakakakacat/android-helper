@@ -55,46 +55,8 @@ abstract class NetworkClassVisitorFactory : AsmClassVisitorFactory<NetworkParams
         parameters.get().hitFilePath.orNull?.let { File(it) }
     )
 
-    override fun isInstrumentable(classData: ClassData): Boolean {
-        val name = classData.className.replace('.', '/')
-        // 自己不能插自己（会变成 Hooks 调 Hooks 的无限递归），
-        // 以及那些不可能持有网络客户端、但类数量巨大的包 —— 跳过它们纯赚构建时间。
-        if (SKIP_PREFIXES.any { name.startsWith(it) }) return false
-        if (isSdkClass(name)) return false
-        return parameters.get().excludes.get().none { name.startsWith(it) }
-    }
-
-    /**
-     * SDK 自己的类：core 在 `kakacat/android/helper/` 顶层，各 feature 在
-     * `kakacat/android/helper/<feature>/`。不能用一个前缀全跳过 —— 使用方的包名
-     * 也可能落在 `kakacat/android/helper/` 下面（本仓库的 sample 就是），那样会被静默跳过。
-     */
-    private fun isSdkClass(name: String): Boolean {
-        if (!name.startsWith(SDK_PACKAGE)) return false
-        val rest = name.substring(SDK_PACKAGE.length)
-        return '/' !in rest || SDK_FEATURES.any { rest.startsWith("$it/") }
-    }
-
-    private companion object {
-        const val SDK_PACKAGE = "kakacat/android/helper/"
-        val SDK_FEATURES = listOf("network", "layout")
-
-        val SKIP_PREFIXES = listOf(
-            "kakacat/android/netcapture/", // 老 SDK 同时存在时也别碰它
-            "okhttp3/",       // 改 OkHttp 内部会让 Hooks 递归调用自己
-            "okio/",
-            "io/grpc/",
-            "com/google/protobuf/",
-            "org/objectweb/asm/",
-            "kotlin/",
-            "kotlinx/",
-            "java/",
-            "javax/",
-            "android/",
-            "androidx/",
-            "com/google/android/",
-        )
-    }
+    override fun isInstrumentable(classData: ClassData): Boolean =
+        InstrumentFilter.accepts(classData.className, parameters.get().excludes.get())
 }
 
 private const val HOOKS = "kakacat/android/helper/network/Hooks"
