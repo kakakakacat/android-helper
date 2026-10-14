@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>kakacat.android.helper</id>
+    <name>Android Helper</name>
+    <vendor>kakacat</vendor>
+    <description><![CDATA[
+    在 Android Studio 里直接调试运行中的 debug 包：<br/>
+    <ul>
+      <li><b>Network</b>：应用层抓包（OkHttp / gRPC / WebSocket），HTTPS 明文，不需要代理和 CA 证书。</li>
+    </ul>
+    App 侧接入：<code>plugins { id("kakacat.android.helper") }</code>，业务代码零改动。
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Android Helper"
+                    anchor="bottom"
+                    icon="/icons/helper.svg"
+                    factoryClass="kakacat.android.helper.ide.HelperToolWindowFactory"/>
+        <notificationGroup id="Android Helper" displayType="BALLOON"/>
+        <postStartupActivity implementation="kakacat.android.helper.ide.HelperStartupActivity"/>
+    </extensions>
+</idea-plugin>

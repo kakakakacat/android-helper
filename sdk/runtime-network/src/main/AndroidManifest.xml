@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  和 runtime-core 一样靠清单合并自动生效；release 里不存在这个 AAR，见 Gradle 插件。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <provider
+            android:name="kakacat.android.helper.network.NetworkInitProvider"
+            android:authorities="${applicationId}.androidhelper.network"
+            android:exported="false"
+            android:multiprocess="true" />
+
+        <!--
+          自检探针。exported=true 是必须的：`adb shell` 是另一个 uid，不导出收不到广播。
+          代价是同一台设备上任何应用都能触发它发一个 https 请求，所以它只接受 https、
+          且不把响应回传给调用方。
+        -->
+        <receiver
+            android:name="kakacat.android.helper.network.ProbeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="kakacat.android.helper.PROBE" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

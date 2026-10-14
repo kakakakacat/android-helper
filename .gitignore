@@ -1,0 +1,10 @@
+build/
+.gradle/
+.kotlin/
+local.properties
+.DS_Store
+*.iml
+.idea/
+# 参考用的上游源码，不属于本项目
+CodeLocator/
+.intellijPlatform/
