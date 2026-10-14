@@ -21,10 +21,10 @@ jobs:
     name: SDK (runtime + Gradle plugin + sample)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: "25" }
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build sample (debug + release) and check release isolation
         working-directory: sdk
         run: |
@@ -38,15 +38,15 @@ jobs:
     name: Client library + MCP server
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: "25" }
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew --console=plain test
         working-directory: client
       - run: ./gradlew --console=plain test fatJar
         working-directory: mcp
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-helper-mcp
           path: mcp/build/libs/android-helper-mcp.jar
@@ -55,17 +55,17 @@ jobs:
     name: IDE plugin (build + Plugin Verifier)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: "25" }
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build, test, verify structure
         working-directory: ide-plugin
         run: ./gradlew --console=plain -PandroidStudioVersion=$ANDROID_STUDIO_VERSION test buildPlugin verifyPluginStructure
       - name: Plugin Verifier (oldest supported + newest Android Studio)
         working-directory: ide-plugin
         run: ./gradlew --console=plain -PandroidStudioVersion=$ANDROID_STUDIO_VERSION -PverifyAndroidStudio=2024.3.2.14,2026.2.1.8 verifyPlugin
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ide-plugin
           path: ide-plugin/build/distributions/*.zip
