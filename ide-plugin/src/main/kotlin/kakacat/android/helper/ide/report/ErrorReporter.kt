@@ -3,12 +3,10 @@ package kakacat.android.helper.ide.report
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.extensions.PluginId
 import com.intellij.util.io.HttpRequests
 import kakacat.android.helper.client.errors.ErrorSanitizer
 import kakacat.android.helper.client.errors.SdkError
@@ -36,8 +34,16 @@ object ErrorReporter {
         get() = PropertiesComponent.getInstance().getBoolean(ENABLED_KEY, true)
         set(value) = PropertiesComponent.getInstance().setValue(ENABLED_KEY, value, true)
 
-    val pluginVersion: String
-        get() = PluginManagerCore.getPlugin(PluginId.getId("kakacat.android.helper"))?.version ?: "?"
+    /**
+     * 从自己 jar 里的 plugin.xml 读（构建时由 Gradle 插件填进去）。不用 PluginManagerCore.getPlugin：
+     * 它是内部 API，PluginId.getId 在 AS 2024.3 上还是 Java 静态方法，Plugin Verifier 两边都不过。
+     */
+    val pluginVersion: String by lazy {
+        runCatching {
+            val xml = ErrorReporter::class.java.getResource("/META-INF/plugin.xml")!!.readText()
+            Regex("<version>([^<]+)</version>").find(xml)!!.groupValues[1].trim()
+        }.getOrDefault("?")
+    }
 
     /** 设备上 SDK 发来的错误。[appPkg] 只用来脱敏，不会被发送。 */
     fun reportSdk(e: SdkError, appPkg: String?) {
