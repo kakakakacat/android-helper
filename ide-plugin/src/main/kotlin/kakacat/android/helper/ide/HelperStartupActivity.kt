@@ -5,12 +5,14 @@ import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.wm.ToolWindowManager
 import kakacat.android.helper.ide.report.ErrorReportConfigurable
 import kakacat.android.helper.ide.report.ErrorReporter
+import kakacat.android.helper.ide.setup.SdkAutoSetup
 
 /**
  * 新 UI 下，第三方插件的工具窗口默认藏在侧边栏的 "⋯" 里，装完插件找不到入口。
@@ -21,6 +23,7 @@ class HelperStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         val props = PropertiesComponent.getInstance()
         noticeErrorReporting(project, props)
+        setUpSdk(project)
         val firstRun = !props.getBoolean(SHOWN_KEY, false)
         // 开发用：./gradlew runIde 时自动展开工具窗口，见 build.gradle.kts
         val autoOpen = System.getProperty("androidhelper.openOnStartup") == "true"
@@ -52,7 +55,25 @@ class HelperStartupActivity : ProjectActivity {
             .notify(project)
     }
 
+    /** 自动接入 SDK：项目第一次登记时告诉用户一声（改的是什么、怎么关）。 */
+    private fun setUpSdk(project: Project) {
+        val added = runCatching { SdkAutoSetup.register(project) }
+            .onFailure { LOG.warn("DroidLens auto setup failed", it) }
+            .getOrDefault(false)
+        if (!added) return
+        NotificationGroupManager.getInstance().getNotificationGroup("DroidLens")
+            .createNotification(HelperBundle.message("autoSetup.notice"), NotificationType.INFORMATION)
+            .addAction(NotificationAction.createSimpleExpiring(HelperBundle.message("autoSetup.notice.disable")) {
+                SdkAutoSetup.enabled = false
+            })
+            .addAction(NotificationAction.createSimple(HelperBundle.message("report.notice.settings")) {
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, ErrorReportConfigurable::class.java)
+            })
+            .notify(project)
+    }
+
     companion object {
+        private val LOG = Logger.getInstance(HelperStartupActivity::class.java)
         private const val REPORT_NOTICE_KEY = "kakacat.droidlens.reportNoticeShown"
 
         const val TOOL_WINDOW_ID = "DroidLens"

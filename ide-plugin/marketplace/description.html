@@ -5,9 +5,11 @@ an <b>in-IDE network inspector</b> (OkHttp, gRPC, WebSocket) and a lightweight
 No proxy, no CA certificate, no web page.
 </p>
 <p>
-<b>⚠ Your app needs the DroidLens SDK.</b> This plugin only displays the data; the capturing is done inside the app
-by a small runtime that the Gradle plugin adds to <b>debug builds only</b>. Without it, the app does not show up in the
-app list. See <a href="#setup">Setup</a> below; it takes two Gradle edits and no code changes.
+<b>Your app needs the DroidLens SDK, and DroidLens adds it for you.</b> The capturing is done inside the app by a small
+runtime in <b>debug builds only</b>. When you open an Android project, DroidLens adds the SDK it ships with to that
+project's debug builds through a Gradle init script: <b>no project files change</b>, nothing is downloaded, release
+builds are untouched. Rebuild and run the debug build once, then pick the app in the DroidLens tool window.
+For CI or machines without the plugin, see <a href="#setup">manual setup</a> below.
 </p>
 
 <h3>Network</h3>
@@ -27,7 +29,9 @@ app list. See <a href="#setup">Setup</a> below; it takes two Gradle edits and no
   <li>Captures on demand only, no continuous streaming, so it stays fast on slow machines (a typical screen takes under 100 ms on the device).</li>
 </ul>
 
-<h3 id="setup">Setup (required)</h3>
+<h3 id="setup">Manual setup (optional)</h3>
+<p>Only needed where the plugin isn't installed (CI, other machines), or when automatic setup is turned off in
+Settings → Tools → DroidLens. Projects set up manually are skipped by the automatic setup.</p>
 <p>1. <code>settings.gradle(.kts)</code>: add the repository in <b>both</b> places (the Gradle plugin resolves from
 <code>pluginManagement</code>, the runtime AAR from <code>dependencyResolutionManagement</code>).</p>
 <pre>pluginManagement {
@@ -66,9 +70,10 @@ The SDK itself never connects to the network. Turn it off in <b>Settings → Too
 可替代 CodeLocator 和 Layout Inspector 的常用功能。
 </p>
 <p>
-<b>⚠ App 需要接入 SDK 才能使用。</b>插件只负责显示，数据是 App 里的 SDK 采集的。按上面 <a href="#setup">Setup</a>
-在 <code>settings.gradle</code> 的两处加上仓库，在 app 模块加 <code>id("kakacat.android.helper") version "0.1.2"</code>，
-重新安装 debug 包即可，业务代码零改动，release 包里不会有 SDK。只接了老版 netcapture SDK 的 App 只能用 Network 页，
+<b>App 里需要 SDK，插件会自动接入。</b>数据是 App 里的 SDK 采集的。在 Android Studio 里打开 Android 项目时，
+插件通过 Gradle 初始化脚本把自带的 SDK 加到这个项目的 debug 构建里：<b>不改项目文件</b>、不联网，release 包里没有。
+重新编译运行一次 debug 包，在 DroidLens 工具窗口里选中 App 即可。CI 或没装插件的机器按上面的
+<a href="#setup">Manual setup</a> 手动接入。只接了老版 netcapture SDK 的 App 只能用 Network 页，
 换成 <code>kakacat.android.helper</code> 后才能用 Layout 页（两者不要同时应用）。
 </p>
 <p>

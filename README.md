@@ -35,6 +35,14 @@ androidhelper/
 
 ## 在项目里接入
 
+**装了 IDE 插件就不用手动接入**：在 Android Studio 里打开 Android 项目时，插件会把项目登记到
+`~/.gradle/droidlens/projects.txt`，并写入 Gradle 初始化脚本 `~/.gradle/init.d/droidlens.gradle`。
+之后这个项目的 debug 构建（Android Studio 里和命令行里都一样）会自动带上插件自带的 SDK，
+不改项目文件、不联网，release 包里也没有。已经手动接入的项目不受影响。可以在
+Settings → Tools → DroidLens 里关掉，关掉时会删除这个初始化脚本。
+
+CI、别人的机器、或者在 Android Studio 里改过 Gradle 用户目录时，按下面的步骤手动接入：
+
 1. `settings.gradle(.kts)` 里加上仓库 —— **两处都要加**：Gradle 插件从 `pluginManagement`
    解析，运行时 AAR 从 `dependencyResolutionManagement` 解析。
 
@@ -90,7 +98,7 @@ cd ide-plugin && ./gradlew buildPlugin
 ```
 
 Android Studio → Settings → Plugins → ⚙ → Install Plugin from Disk →
-选 `ide-plugin/build/distributions/android-helper-ide-0.1.2.zip`。
+选 `ide-plugin/build/distributions/android-helper-ide-0.1.3.zip`。
 
 底部会出现 **DroidLens** 工具窗口：选设备 → 选 App → ▶ 连接。
 连过一次之后，下次打开工具窗口时该 App 在运行就会自动连上；App 重启后自动重连。

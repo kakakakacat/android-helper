@@ -6,6 +6,8 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.ui.ComboBox
+import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.JBSplitter
@@ -24,15 +26,19 @@ import java.awt.FlowLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import javax.imageio.ImageIO
+import javax.swing.DefaultCellEditor
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.JTree
 import javax.swing.SwingUtilities
 import javax.swing.table.AbstractTableModel
+import javax.swing.table.TableCellEditor
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreePath
 import javax.swing.tree.TreeSelectionModel
+
+private const val AUTO_JUMP_KEY = "AndroidHelper.Layout.autoJumpCustomView"
 
 /**
  * Layout 标签页：截图 | View 树 + 跳转按钮 + 属性表。
@@ -48,11 +54,25 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
     private val tree = Tree(treeModel)
     private val search = SearchTextField(false).apply { textEditor.emptyText.text = HelperBundle.message("layout.search") }
     private val showHidden = JBCheckBox(HelperBundle.message("layout.showHidden"))
+    private val autoJump = JBCheckBox(HelperBundle.message("layout.autoJump"),
+        PropertiesComponent.getInstance().getBoolean(AUTO_JUMP_KEY, true)).apply {
+        toolTipText = HelperBundle.message("layout.autoJump.tip")
+        addActionListener { PropertiesComponent.getInstance().setValue(AUTO_JUMP_KEY, isSelected, true) }
+    }
+    /** 上次自动打开过的节点：画面上点选会再同步选中树，避免同一次点击跳两遍。 */
+    private var autoJumped: LNode? = null
     private val grabButton = JButton(HelperBundle.message("layout.grab"))
     private val status = JBLabel()
     private val jumpBar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
     private val props = PropertyModel()
-    private val propTable = JBTable(props)
+    private val propTable = object : JBTable(props) {
+        // 有限取值的属性（visibility、boolean、layout 宽高）用下拉框，其余自由输入
+        override fun getCellEditor(row: Int, column: Int): TableCellEditor {
+            val choices = props.choicesAt(row) ?: return super.getCellEditor(row, column)
+            val combo = ComboBox(choices.values.toTypedArray()).apply { isEditable = choices.freeText }
+            return DefaultCellEditor(combo).apply { clickCountToStart = 1 }
+        }
+    }
 
     private var snapshot: LayoutSnapshot? = null
     private var grabbing = false
@@ -61,6 +81,7 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
         val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 6, 2)).apply {
             add(grabButton)
             add(showHidden)
+            add(autoJump)
             add(search)
             add(status)
         }
@@ -224,6 +245,10 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
         screen.selected = n
         props.show(n, snapshot?.density ?: 1f)
         updateJumpBar(n)
+        if (n != null && n !== autoJumped && autoJump.isSelected && isCustomView(n)) {
+            autoJumped = n
+            navigator.openProjectClassQuietly(n.cls)
+        }
         if (!fromTree && n != null) {
             val path = findTreePath(n)
             if (path != null && tree.selectionPath != path) {
@@ -292,13 +317,16 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
             generateSequence(n) { it.parent }.firstNotNullOfOrNull { it.fragment }
                 ?.let { f -> jump(HelperBundle.message("jump.fragment"), f) { navigator.openClass(f) } }
             snapshot?.windowOf(n)?.activity?.let { a -> jump(HelperBundle.message("jump.activity"), a) { navigator.openClass(a) } }
-            if (!n.compose && !n.cls.startsWith("android.") && !n.cls.startsWith("androidx.") && !n.cls.startsWith("com.android.")) {
+            if (isCustomView(n)) {
                 jump(HelperBundle.message("jump.viewClass"), n.cls) { navigator.openClass(n.cls) }
             }
         }
         jumpBar.revalidate()
         jumpBar.repaint()
     }
+
+    private fun isCustomView(n: LNode) =
+        !n.compose && !n.cls.startsWith("android.") && !n.cls.startsWith("androidx.") && !n.cls.startsWith("com.android.")
 
     private fun edit(key: String, value: String) {
         val node = selectedNode() ?: return
@@ -360,7 +388,17 @@ class LayoutPanel(private val session: HelperSession) : JPanel(BorderLayout()), 
  */
 private class PropertyModel : AbstractTableModel() {
 
-    class Row(val label: String, val value: String, val editKey: String? = null)
+    /** 下拉候选；[freeText] 为 true 时还能手输（比如 layout 宽高可以填 px）。 */
+    class Choices(val values: List<String>, val freeText: Boolean = false)
+
+    /** [toValue] 把编辑框里的值转成发给 SDK 的值（layout 宽高要拼上另一维）。 */
+    class Row(
+        val label: String,
+        val value: String,
+        val editKey: String? = null,
+        val choices: Choices? = null,
+        val toValue: (String) -> String = { it },
+    )
 
     private var rows: List<Row> = emptyList()
     var onEdit: (String, String) -> Unit = { _, _ -> }
@@ -386,12 +424,18 @@ private class PropertyModel : AbstractTableModel() {
         n.rid?.let { out.add(Row(if (n.compose) "testTag" else "id", it)) }
         val b = n.bounds
         out.add(Row("bounds", "[${b.x}, ${b.y}]  ${b.width}×${b.height} px  (${dp(b.width)}×${dp(b.height)} dp)"))
-        out.add(Row("visibility", n.visibility.toString(), key("visibility")))
+        val vis = when (n.visibility) { 'I' -> "invisible"; 'G' -> "gone"; else -> "visible" }
+        out.add(Row("visibility", vis, key("visibility"), VISIBILITY))
         j.get("alpha")?.let { out.add(Row("alpha", it.asString, key("alpha"))) } ?: if (editable) out.add(Row("alpha", "1", "alpha")) else Unit
-        if (editable) out.add(Row("enabled", (j.get("enabled")?.asBoolean ?: true).toString(), "enabled"))
+        if (editable) out.add(Row("enabled", (j.get("enabled")?.asBoolean ?: true).toString(), "enabled", BOOLEAN))
         val flags = listOf("clickable", "longClickable", "focusable", "focused", "selected").filter { j.get(it)?.asBoolean == true }
         if (flags.isNotEmpty()) out.add(Row("flags", flags.joinToString(", ")))
-        j.get("lp")?.asJsonArray?.let { out.add(Row("layout w, h", "${lp(it[0].asInt)}, ${lp(it[1].asInt)}", key("lp"))) }
+        j.get("lp")?.asJsonArray?.let {
+            val w = it[0].asInt
+            val h = it[1].asInt
+            out.add(Row("layout_width", lp(w), key("lp"), LAYOUT_SIZE) { v -> "$v, $h" })
+            out.add(Row("layout_height", lp(h), key("lp"), LAYOUT_SIZE) { v -> "$w, $v" })
+        }
         arr("padding")?.let { out.add(Row("padding", it, key("padding"))) }
         arr("margin")?.let { out.add(Row("margin", it, key("margin"))) }
         arr("translation")?.let { out.add(Row("translation", it, key("translation"))) }
@@ -413,6 +457,8 @@ private class PropertyModel : AbstractTableModel() {
         return out
     }
 
+    fun choicesAt(row: Int): Choices? = rows.getOrNull(row)?.takeIf { it.editKey != null }?.choices
+
     override fun getRowCount() = rows.size
     override fun getColumnCount() = 2
     override fun getColumnName(column: Int) = if (column == 0) HelperBundle.message("layout.col.property") else HelperBundle.message("layout.col.value")
@@ -424,6 +470,12 @@ private class PropertyModel : AbstractTableModel() {
         val key = row.editKey ?: return
         val v = aValue?.toString() ?: return
         if (v == row.value) return
-        onEdit(key, v)
+        onEdit(key, row.toValue(v))
+    }
+
+    private companion object {
+        val VISIBILITY = Choices(listOf("visible", "invisible", "gone"))
+        val BOOLEAN = Choices(listOf("true", "false"))
+        val LAYOUT_SIZE = Choices(listOf("match_parent", "wrap_content"), freeText = true)
     }
 }

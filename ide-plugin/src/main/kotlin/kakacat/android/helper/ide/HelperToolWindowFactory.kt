@@ -50,6 +50,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
     JPanel(BorderLayout()), HelperSession.Listener {
 
     private val devices = ComboBox<Device>()
+    private val setup = SetupPanel(project)
     private val apps = ComboBox<Endpoint>()
     private val status = JBLabel().apply { border = JBUI.Borders.emptyLeft(8) }
     private val cards = CardLayout()
@@ -119,7 +120,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
             (0 until tabs.tabCount).firstOrNull { tabs.getTitleAt(it) == title }?.let { tabs.selectedIndex = it }
         }
         center.add(tabs, CARD_TABS)
-        center.add(SetupPanel(), CARD_SETUP)
+        center.add(setup, CARD_SETUP)
         add(center, BorderLayout.CENTER)
 
         session.addListener(this)
@@ -221,6 +222,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
 
     /** 设备在线却没有接了 SDK 的 App 时，中间换成接入步骤；连上或找到 App 就换回标签页。 */
     private fun showSetup(show: Boolean) {
+        if (show) setup.refresh()
         cards.show(center, if (show && session.state == HelperSession.State.DISCONNECTED) CARD_SETUP else CARD_TABS)
     }
 

@@ -2,10 +2,12 @@ package kakacat.android.helper.ide
 
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import kakacat.android.helper.ide.setup.SdkAutoSetup
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.datatransfer.StringSelection
@@ -20,17 +22,18 @@ import javax.swing.JTextArea
  * 装了插件却不知道 App 里还要接 SDK 是最常见的困惑 —— 状态栏那一行字没人看，
  * 所以直接把步骤和可复制的 Gradle 配置摆在中间。
  */
-class SetupPanel : JPanel(BorderLayout()) {
+class SetupPanel(private val project: Project) : JPanel(BorderLayout()) {
+
+    private val title = JBLabel()
+    private val intro = JBLabel()
 
     init {
         val content = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = JBUI.Borders.empty(16, 24)
         }
-        content.add(left(JBLabel(HelperBundle.message("setup.title")).apply {
-            font = JBUI.Fonts.label().biggerOn(3f).asBold()
-        }))
-        content.add(left(JBLabel(HelperBundle.message("setup.intro")).apply { border = JBUI.Borders.empty(6, 0, 12, 0) }))
+        content.add(left(title.apply { font = JBUI.Fonts.label().biggerOn(3f).asBold() }))
+        content.add(left(intro.apply { border = JBUI.Borders.empty(6, 0, 12, 0) }))
 
         content.add(left(JBLabel(HelperBundle.message("setup.step1"))))
         content.add(snippet(SETTINGS_SNIPPET, HelperBundle.message("setup.copy")))
@@ -45,6 +48,14 @@ class SetupPanel : JPanel(BorderLayout()) {
             })
         }))
         add(JBScrollPane(content).apply { border = JBUI.Borders.empty() }, BorderLayout.CENTER)
+        refresh()
+    }
+
+    /** 每次显示前调用：项目已被自动接入时，先告诉用户"重新运行就行"，手动步骤退到后面。 */
+    fun refresh() {
+        val auto = runCatching { SdkAutoSetup.coversProject(project) }.getOrDefault(false)
+        title.text = HelperBundle.message(if (auto) "setup.auto.title" else "setup.title")
+        intro.text = HelperBundle.message(if (auto) "setup.auto.intro" else "setup.intro")
     }
 
     private fun snippet(code: String, copyText: String): JPanel {
@@ -69,8 +80,8 @@ class SetupPanel : JPanel(BorderLayout()) {
     private fun <T : javax.swing.JComponent> left(c: T): T = c.apply { alignmentX = LEFT_ALIGNMENT }
 
     private companion object {
-        // 发新版 SDK 时同步改这里（和 marketplace/description.html、README 一起）
-        const val SDK_VERSION = "0.1.2"
+        // 跟随插件包里自带的 SDK 版本（构建时从 sdk/gradle.properties 取）
+        val SDK_VERSION get() = SdkAutoSetup.sdkVersion
         const val REPO = "https://raw.githubusercontent.com/kakakakacat/android-helper/main/mvn-repo/"
         const val DOCS_URL = "https://github.com/kakakakacat/android-helper#在项目里接入"
 

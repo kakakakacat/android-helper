@@ -1,0 +1,85 @@
+// DroidLens：给在 Android Studio 里打开过的项目的 debug 构建自动接入 Android Helper SDK，
+// 用户项目里一行都不用改。
+//
+// 由 DroidLens 插件生成并覆盖，不要手改。关掉 Settings → Tools → DroidLens →
+// "自动为 debug 构建接入 SDK" 会删除这个文件；也可以直接删。
+//
+// 规则：
+//  - 只处理 <Gradle 用户目录>/droidlens/projects.txt 里列出的项目根目录（插件在打开项目时登记）；
+//  - 项目自己已经用了 kakacat.android.helper 插件的，不动；
+//  - SDK 只加到 debug / internal build type（Gradle 插件的默认规则），release 包里没有；
+//  - 用的是插件自带、解压在本机的 SDK，不联网；任何一步失败都只打警告，绝不让构建失败。
+def droidlensVersion = '@VERSION@'
+def droidlensHome = new File(gradle.gradleUserHomeDir, 'droidlens')
+def droidlensRepo = new File(droidlensHome, 'repo')
+def droidlensJar = new File(droidlensRepo, "kakacat/android/helper/gradle-plugin/$droidlensVersion/gradle-plugin-${droidlensVersion}.jar")
+def droidlensProjects = new File(droidlensHome, 'projects.txt')
+
+def droidlensEnabledFor = { File rootDir ->
+    if (!droidlensJar.isFile() || !droidlensProjects.isFile()) return false
+    def root = rootDir.canonicalPath
+    droidlensProjects.readLines('UTF-8').any { it.trim() == root }
+}
+
+// 项目已经手动接入时不再注入：两份插件会重复建 androidHelper 扩展，构建直接失败。
+def droidlensConfiguredManually = { settings ->
+    def files = [new File(settings.settingsDir, 'settings.gradle'), new File(settings.settingsDir, 'settings.gradle.kts')]
+    new File(settings.rootDir, 'gradle').listFiles()?.findAll { it.name.endsWith('.toml') }?.each { files << it }
+    def walk
+    walk = { d -> files << d.buildFile; d.children.each(walk) }
+    walk(settings.rootProject)
+    files.any { it.isFile() && it.getText('UTF-8').contains('kakacat.android.helper') }
+}
+
+settingsEvaluated { settings ->
+    try {
+        if (!droidlensEnabledFor(settings.rootDir)) return
+        if (droidlensConfiguredManually(settings)) {
+            logger.info('DroidLens: 项目已手动接入 kakacat.android.helper，跳过自动接入')
+            return
+        }
+    } catch (Throwable t) {
+        logger.warn("DroidLens: 自动接入 SDK 的检查出错，已跳过：$t")
+        return
+    }
+
+    def addRepo = { repos ->
+        repos.maven {
+            name = 'droidlensLocal'
+            url = droidlensRepo.toURI()
+            content { includeGroup 'kakacat.android.helper' }
+        }
+    }
+    def preferProject = true
+    try {
+        addRepo(settings.dependencyResolutionManagement.repositories)
+        preferProject = settings.dependencyResolutionManagement.repositoriesMode.get().name() == 'PREFER_PROJECT'
+    } catch (Throwable ignored) {
+        // 很老的 Gradle 没有 dependencyResolutionManagement，只走项目级仓库
+    }
+
+    settings.gradle.allprojects { p ->
+        // 插件 jar 直接按文件放进 buildscript classpath：不解析坐标、不联网。
+        // 只放进叶子项目（app 模块几乎都是叶子）：放进父项目的话会从父 classloader 加载，
+        // 看不到只在 app 模块里声明的 AGP（NoClassDefFoundError）。
+        if (!p.childProjects.isEmpty()) return
+        p.buildscript.dependencies.add('classpath', p.files(droidlensJar))
+        p.pluginManager.withPlugin('com.android.application') {
+            try {
+                p.pluginManager.apply('kakacat.android.helper')
+                p.logger.info("DroidLens: ${p.path} 已自动接入 Android Helper SDK $droidlensVersion")
+            } catch (Throwable t) {
+                p.logger.warn("DroidLens: ${p.path} 自动接入 SDK 失败，已跳过（不影响构建）：$t")
+                def cause = t
+                while (cause.cause != null && cause.cause != cause) cause = cause.cause
+                if (cause != t) p.logger.warn("DroidLens:   根因：$cause")
+            }
+        }
+        // 默认的 PREFER_PROJECT 模式下，项目只要自己声明了仓库，settings 里的仓库就不生效
+        if (preferProject) {
+            p.afterEvaluate {
+                if (!p.repositories.isEmpty()) addRepo(p.repositories)
+            }
+        }
+    }
+}

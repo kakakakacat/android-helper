@@ -1,10 +1,12 @@
+import java.util.Properties
+
 plugins {
     id("org.jetbrains.kotlin.jvm") version "2.3.21"
     id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 group = "kakacat.android.helper"
-version = "0.1.2"
+version = "0.1.3"
 
 repositories {
     mavenCentral()
@@ -25,6 +27,43 @@ dependencies {
     implementation("kakacat.android.helper:client")
     testImplementation("junit:junit:4.13.2")
 }
+
+// 插件包里自带一份 SDK（Gradle 插件 jar + 运行时 AAR，几百 KB），自动接入时解压到本机，
+// 构建用户项目时不联网。版本取 sdk/gradle.properties，文件取已发布的 ../mvn-repo ——
+// 所以要先发布 SDK（scripts/publish-sdk.sh）再构建插件。
+val bundledSdkVersion: String = Properties().apply {
+    layout.projectDirectory.file("../sdk/gradle.properties").asFile.inputStream().use { load(it) }
+}.getProperty("helper.version")
+val bundledSdkArtifacts = listOf("gradle-plugin", "runtime-core", "runtime-network", "runtime-layout")
+
+val bundleSdk by tasks.registering {
+    val v = bundledSdkVersion
+    val src = layout.projectDirectory.dir("../mvn-repo/kakacat/android/helper")
+    val out = layout.buildDirectory.dir("generated/bundledSdk")
+    inputs.property("version", v)
+    inputs.files(bundledSdkArtifacts.map { src.dir("$it/$v") })
+    outputs.dir(out)
+    doLast {
+        val root = out.get().dir("droidlens/sdk").asFile
+        root.deleteRecursively()
+        val index = ArrayList<String>()
+        for (a in bundledSdkArtifacts) {
+            val dir = src.dir("$a/$v").asFile
+            val files = dir.listFiles()?.filter { f -> listOf(".jar", ".aar", ".pom", ".module").any { f.name.endsWith(it) } }.orEmpty()
+            check(files.any { it.name.endsWith(".jar") || it.name.endsWith(".aar") }) {
+                "mvn-repo 里没有 $a $v：先发布 SDK（scripts/publish-sdk.sh）再构建插件"
+            }
+            for (f in files) {
+                val rel = "kakacat/android/helper/$a/$v/${f.name}"
+                f.copyTo(root.resolve(rel), overwrite = true)
+                index.add(rel)
+            }
+        }
+        root.resolve("index.txt").writeText(index.joinToString("\n", postfix = "\n"))
+        root.resolve("version.txt").writeText(v)
+    }
+}
+sourceSets.main { resources.srcDir(bundleSdk) }
 
 // 产物针对 JBR 21（AS 2024.3 起），用当前 JDK 编译即可，不强制装 21 的 toolchain。
 java {

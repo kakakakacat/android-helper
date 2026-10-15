@@ -55,6 +55,18 @@ class SourceNavigator(private val project: Project) {
         open(listOf("$outer.kt", "$outer.java"), pkg, 0, fqn)
     }
 
+    /**
+     * 选中自定义 View 时自动打开它的类：只在项目源码里找（三方库的 View 不算"自定义"），
+     * 找不到就静默放弃；不抢焦点，方便继续在树里用方向键挑。
+     */
+    fun openProjectClassQuietly(fqn: String) {
+        val outer = fqn.substringAfterLast('.').substringBefore('$')
+        val pkg = fqn.substringBeforeLast('.', "").replace('.', '/')
+        findAsync(listOf("$outer.kt", "$outer.java"), if (pkg.isEmpty()) null else "/$pkg/", projectOnly = true) { file ->
+            file?.let { navigate(it, 0, focus = false) }
+        }
+    }
+
     private fun open(names: List<String>, packagePath: String, line: Int, what: String) {
         findAsync(names, preferPath = if (packagePath.isEmpty()) null else "/$packagePath/") { file ->
             if (file == null) notFound(what) else navigate(file, line)
@@ -65,11 +77,12 @@ class SourceNavigator(private val project: Project) {
      * 在后台读线程上查文件名索引，结果回到 EDT。`inSmartMode`：还在建索引时自动等到建完再查
      * （刚打开项目就点跳转是很常见的情况）。
      */
-    private fun findAsync(names: List<String>, preferPath: String?, onFound: (VirtualFile?) -> Unit) {
-        if (DumbService.isDumb(project)) notify(HelperBundle.message("nav.indexing"), NotificationType.INFORMATION)
+    private fun findAsync(names: List<String>, preferPath: String?, projectOnly: Boolean = false, onFound: (VirtualFile?) -> Unit) {
+        if (DumbService.isDumb(project) && !projectOnly) notify(HelperBundle.message("nav.indexing"), NotificationType.INFORMATION)
         ReadAction.nonBlocking<VirtualFile?> {
             // 先找项目源码，找不到再找依赖（带源码的三方库）
-            for (scope in listOf(GlobalSearchScope.projectScope(project), GlobalSearchScope.allScope(project))) {
+            val scopes = listOf(GlobalSearchScope.projectScope(project), GlobalSearchScope.allScope(project))
+            for (scope in if (projectOnly) scopes.take(1) else scopes) {
                 val candidates = names.flatMap { FilenameIndex.getVirtualFilesByName(it, scope) }
                 if (candidates.isEmpty()) continue
                 return@nonBlocking candidates.firstOrNull { preferPath != null && it.path.contains(preferPath) }
@@ -83,8 +96,8 @@ class SourceNavigator(private val project: Project) {
             .submit(AppExecutorUtil.getAppExecutorService())
     }
 
-    private fun navigate(file: VirtualFile, line: Int) {
-        OpenFileDescriptor(project, file, (line - 1).coerceAtLeast(0), 0).navigate(true)
+    private fun navigate(file: VirtualFile, line: Int, focus: Boolean = true) {
+        OpenFileDescriptor(project, file, (line - 1).coerceAtLeast(0), 0).navigate(focus)
     }
 
     private fun notFound(what: String) = notify(HelperBundle.message("nav.notFound", what), NotificationType.WARNING)
