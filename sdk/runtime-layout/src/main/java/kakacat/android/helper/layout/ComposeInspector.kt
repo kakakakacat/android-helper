@@ -1,6 +1,7 @@
 package kakacat.android.helper.layout
 
 import android.view.View
+import kakacat.android.helper.HelperErrors
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
@@ -30,6 +31,8 @@ internal object ComposeInspector {
         view.rootView.getLocationOnScreen(origin)
         node(root, origin, nodes, 0)
     } catch (t: Throwable) {
+        // Compose 内部 API 变了最可能在这里体现
+        HelperErrors.record("layout", "layout.compose.semantics", t)
         null
     }
 

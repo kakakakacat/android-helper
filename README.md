@@ -28,6 +28,7 @@ androidhelper/
 ├── client/                  和 IDE 无关的客户端：adb、帧协议、连接、抓包 / 布局数据模型
 ├── ide-plugin/              Android Studio 插件（Swing 原生 UI），依赖 client
 ├── mcp/                     MCP 服务（给 agent 用），依赖 client，独立于 Android Studio 运行
+├── report-worker/           错误报告中转（Cloudflare Worker）：插件 → reports.kakacat.net → GitHub issue
 ├── mvn-repo/                已发布的 SDK（raw.githubusercontent.com 直接读）
 └── CodeLocator/             字节 CodeLocator 上游源码，仅供参考，不参与构建
 ```
@@ -61,7 +62,7 @@ androidhelper/
 
    ```kotlin
    plugins {
-       id("kakacat.android.helper") version "0.1.1"
+       id("kakacat.android.helper") version "0.1.2"
    }
    ```
 
@@ -89,7 +90,7 @@ cd ide-plugin && ./gradlew buildPlugin
 ```
 
 Android Studio → Settings → Plugins → ⚙ → Install Plugin from Disk →
-选 `ide-plugin/build/distributions/android-helper-ide-0.1.1.zip`。
+选 `ide-plugin/build/distributions/android-helper-ide-0.1.2.zip`。
 
 底部会出现 **DroidLens** 工具窗口：选设备 → 选 App → ▶ 连接。
 连过一次之后，下次打开工具窗口时该 App 在运行就会自动连上；App 重启后自动重连。
@@ -172,9 +173,31 @@ adb 自动查找（`ANDROID_HOME` / 默认 SDK 路径 / PATH），也可以加�
 | `tap` / `input_text` / `press_key` | 按 View id 点击、输入、按键（走 adb input） |
 | `screenshot` | 截图（可缩小），只在需要看视觉效果时用 |
 | `list_requests` / `get_request` / `clear_requests` | 抓包：请求列表、详情（头、body、gRPC / WebSocket 消息） |
+| `get_sdk_logs` | SDK 自身的错误（截图失败、SurfaceView 拷不到、插桩异常……），数据不全时先看它 |
 
 不传 `app` / `device` 时自动选：只有一台设备、一个 App 就用它，否则沿用上次的，再不行就报错并列出候选。
 抓包从 MCP 第一次连上 App 开始记录。IDE 插件和 MCP 可以同时连同一个 App，互不影响。
+
+## 错误上报
+
+SDK 和插件自身的错误会**默认**上报成公开仓库的 issue（标签
+[`auto-report`](https://github.com/kakakakacat/android-helper/issues?q=label%3Aauto-report)）：
+
+```
+App 里的 SDK ──adb socket──▶ DroidLens 插件 ──HTTPS──▶ reports.kakacat.net ──GitHub API──▶ issue
+ (HelperErrors 记录)         (ErrorSanitizer 脱敏)      (report-worker，持有 token)       (同一指纹只开一个)
+```
+
+- **SDK 从不联网**：错误只存在进程内存里（按位置 + 异常类型去重，最多 50 条），打 logcat，
+  再通过已有连接交给插件 / MCP。MCP 的 `get_sdk_logs` 能直接读。
+- **插件上报前脱敏**：堆栈里只留 SDK、插件、系统框架和常见库的帧，使用方 App 的类一律变成 `<app>`；
+  消息里的包名、URL、路径、邮箱、IP、长 id 都替换掉；不发设备型号。Worker 端再兜底擦一遍。
+- **去重**：同一指纹（位置 + 异常 + SDK 自己的前几帧，不含行号）只开一个 issue，之后新版本出现或隔一天才追加评论；
+  每天最多新开 20 个，每个 IP 每分钟 10 份。
+- **关闭**：Settings → Tools → DroidLens，或第一次启动时通知里的"关闭上报"。
+- 插件自身的异常走 IDE 错误对话框里的"报告"按钮（用户点了才发）。
+
+Worker 的部署和 token 见 [report-worker/README.md](report-worker/README.md)。
 
 ## 设计要点
 

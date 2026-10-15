@@ -109,6 +109,7 @@ object EventSink {
                 }
             } catch (t: Throwable) {
                 // 自身的任何异常都不允许冒泡：这条线程死了就再也没有数据，但业务必须完全无感。
+                HelperErrors.record("core", "core.sink", t)
             }
         }
     }

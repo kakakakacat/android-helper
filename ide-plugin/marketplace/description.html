@@ -46,12 +46,17 @@ dependencyResolutionManagement {
 }</pre>
 <p>2. App module:</p>
 <pre>plugins {
-    id("kakacat.android.helper") version "0.1.1"
+    id("kakacat.android.helper") version "0.1.2"
 }</pre>
 <p>3. Rebuild and install the debug build, then pick the app in the DroidLens tool window and press ▶.</p>
 <p>No code changes. The runtime is added to <code>debug</code> builds only and is completely absent from release builds.
 Apps that use the older android-netcapture SDK still connect, but only the Network tab works; replace
 <code>kakacat.android.netcapture</code> with <code>kakacat.android.helper</code> to get the Layout tab (don't apply both).</p>
+<h3>Error reporting</h3>
+<p>By default, errors inside DroidLens and inside the SDK in your debug app are reported as public GitHub issues
+(<a href="https://github.com/kakakakacat/android-helper/issues?q=label%3Aauto-report">label auto-report</a>) so they get fixed.
+Before anything is sent, your app's class names, package name, URLs, file paths and long ids are removed; the device model is not sent.
+The SDK itself never connects to the network. Turn it off in <b>Settings → Tools → DroidLens</b>.</p>
 <p>More options and troubleshooting: <a href="https://github.com/kakakakacat/android-helper">github.com/kakakakacat/android-helper</a></p>
 
 <hr/>
@@ -62,7 +67,11 @@ Apps that use the older android-netcapture SDK still connect, but only the Netwo
 </p>
 <p>
 <b>⚠ App 需要接入 SDK 才能使用。</b>插件只负责显示，数据是 App 里的 SDK 采集的。按上面 <a href="#setup">Setup</a>
-在 <code>settings.gradle</code> 的两处加上仓库，在 app 模块加 <code>id("kakacat.android.helper") version "0.1.1"</code>，
+在 <code>settings.gradle</code> 的两处加上仓库，在 app 模块加 <code>id("kakacat.android.helper") version "0.1.2"</code>，
 重新安装 debug 包即可，业务代码零改动，release 包里不会有 SDK。只接了老版 netcapture SDK 的 App 只能用 Network 页，
 换成 <code>kakacat.android.helper</code> 后才能用 Layout 页（两者不要同时应用）。
+</p>
+<p>
+<b>错误上报：</b>默认会把 DroidLens 和 SDK 自身的错误上报为公开的 GitHub issue。发送前去掉你 App 的类名、包名、URL、路径和长 id，
+不发设备型号；SDK 本身从不联网。可在 Settings → Tools → DroidLens 关闭。
 </p>

@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import kakacat.android.helper.HelperErrors
 
 /**
  * 构建期插桩调用的入口。作用只有一个：记下"这个 View 是在哪一行代码里来的"，
@@ -110,6 +111,7 @@ object LayoutHooks {
             val decor = (dialog as? Dialog)?.window?.peekDecorView() ?: return
             ViewSources.of(decor)?.shown = site
         } catch (t: Throwable) {
+            HelperErrors.record("layout", "layout.hook.dialogShown", t)
         }
     }
 
@@ -119,6 +121,7 @@ object LayoutHooks {
             val inflated = if (attached && root != null && root.childCount > 0) root.getChildAt(root.childCount - 1) else result
             mark(context, inflated, res, site)
         } catch (t: Throwable) {
+            HelperErrors.record("layout", "layout.hook.inflate", t)
         }
     }
 
@@ -126,6 +129,7 @@ object LayoutHooks {
         try {
             (content as? ViewGroup)?.getChildAt(0)?.let { mark(context, it, res, site) }
         } catch (t: Throwable) {
+            HelperErrors.record("layout", "layout.hook.setContentView", t)
         }
     }
 

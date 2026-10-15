@@ -1,10 +1,16 @@
 package kakacat.android.helper.ide
 
 import com.intellij.ide.util.PropertiesComponent
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.wm.ToolWindowManager
+import kakacat.android.helper.ide.report.ErrorReportConfigurable
+import kakacat.android.helper.ide.report.ErrorReporter
 
 /**
  * 新 UI 下，第三方插件的工具窗口默认藏在侧边栏的 "⋯" 里，装完插件找不到入口。
@@ -14,6 +20,7 @@ class HelperStartupActivity : ProjectActivity {
 
     override suspend fun execute(project: Project) {
         val props = PropertiesComponent.getInstance()
+        noticeErrorReporting(project, props)
         val firstRun = !props.getBoolean(SHOWN_KEY, false)
         // 开发用：./gradlew runIde 时自动展开工具窗口，见 build.gradle.kts
         val autoOpen = System.getProperty("androidhelper.openOnStartup") == "true"
@@ -30,7 +37,24 @@ class HelperStartupActivity : ProjectActivity {
         }
     }
 
+    /** 错误上报默认开启：第一次告诉用户一声，给出关掉的入口。 */
+    private fun noticeErrorReporting(project: Project, props: PropertiesComponent) {
+        if (props.getBoolean(REPORT_NOTICE_KEY, false)) return
+        props.setValue(REPORT_NOTICE_KEY, true)
+        NotificationGroupManager.getInstance().getNotificationGroup("DroidLens")
+            .createNotification(HelperBundle.message("report.notice"), NotificationType.INFORMATION)
+            .addAction(NotificationAction.createSimpleExpiring(HelperBundle.message("report.notice.disable")) {
+                ErrorReporter.enabled = false
+            })
+            .addAction(NotificationAction.createSimple(HelperBundle.message("report.notice.settings")) {
+                ShowSettingsUtil.getInstance().showSettingsDialog(project, ErrorReportConfigurable::class.java)
+            })
+            .notify(project)
+    }
+
     companion object {
+        private const val REPORT_NOTICE_KEY = "kakacat.droidlens.reportNoticeShown"
+
         const val TOOL_WINDOW_ID = "DroidLens"
         private const val SHOWN_KEY = "kakacat.androidhelper.stripeShown"
     }

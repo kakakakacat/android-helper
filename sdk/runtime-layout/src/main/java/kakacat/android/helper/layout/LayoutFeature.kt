@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.View
 import kakacat.android.helper.Frame
 import kakacat.android.helper.HelperClient
+import kakacat.android.helper.HelperErrors
 import kakacat.android.helper.HelperFeature
 import org.json.JSONArray
 import org.json.JSONObject
@@ -134,7 +135,7 @@ internal class LayoutFeature(private val context: Context) : HelperFeature {
             try {
                 ref.set(block())
             } catch (t: Throwable) {
-                Log.w(TAG, "main-thread task failed", t)
+                HelperErrors.record("layout", "layout.mainTask", t)
             } finally {
                 latch.countDown()
             }

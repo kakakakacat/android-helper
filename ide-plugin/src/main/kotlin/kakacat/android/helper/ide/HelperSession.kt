@@ -7,11 +7,14 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import kakacat.android.helper.client.adb.Adb
 import kakacat.android.helper.client.adb.Endpoint
+import kakacat.android.helper.client.errors.SdkError
+import kakacat.android.helper.client.errors.SdkErrorStore
 import kakacat.android.helper.client.network.NetStore
 import kakacat.android.helper.client.network.int
 import kakacat.android.helper.client.network.str
 import kakacat.android.helper.client.protocol.Frame
 import kakacat.android.helper.client.protocol.HelperConnection
+import kakacat.android.helper.ide.report.ErrorReporter
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.swing.SwingUtilities
 import javax.swing.Timer
@@ -37,6 +40,9 @@ class HelperSession(val project: Project) : Disposable {
     }
 
     val netStore = NetStore()
+
+    /** 设备上 SDK 自身的错误（不是 App 的）。默认会脱敏后上报，见 [ErrorReporter]。 */
+    val sdkErrors = SdkErrorStore()
 
     var state = State.DISCONNECTED
         private set
@@ -207,6 +213,10 @@ class HelperSession(val project: Project) : Disposable {
             if (frame is Frame.Control) {
                 val type = frame.json.str("type")
                 if (type == "hello") onHello(frame.json)
+                else if (type == "sdk.error") SdkError.parse(frame.json)?.let { e ->
+                    sdkErrors.add(e)
+                    ErrorReporter.reportSdk(e, endpoint?.pkg)
+                }
                 else if (type != null && type.endsWith(".result")) onResult(frame.json)
                 continue
             }

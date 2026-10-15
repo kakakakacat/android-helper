@@ -84,7 +84,14 @@ internal object HelperServer {
         EventSink.ensureWorker()
         // hello 先发、再加入广播列表：保证客户端收到的第一帧一定是 hello。
         client.send(Frame.CONTROL, Frame.encodeEvent(hello(context, name)))
-        for (f in Helper.features) runCatching { f.onAttach(client) }
+        for (f in Helper.features) {
+            try {
+                f.onAttach(client)
+            } catch (t: Throwable) {
+                HelperErrors.record(f.name, "${f.name}.onAttach", t)
+            }
+        }
+        HelperErrors.replay(client)
         clients.add(client)
         Log.i(TAG, "client attached via $name (${clients.size} total)")
 
@@ -119,7 +126,13 @@ internal object HelperServer {
         put("features", JSONArray(Helper.features.map { it.name }))
         for (f in Helper.features) {
             // feature 可以往 hello 里塞自己的字段（比如 network 的 body 上限）
-            (f as? HelloContributor)?.let { runCatching { it.contribute(this) } }
+            (f as? HelloContributor)?.let {
+                try {
+                    it.contribute(this)
+                } catch (t: Throwable) {
+                    HelperErrors.record(f.name, "${f.name}.hello", t)
+                }
+            }
         }
     }
 
@@ -141,7 +154,12 @@ internal object HelperServer {
             if (type != Frame.CONTROL) continue
             val json = runCatching { JSONObject(String(payload, Charsets.UTF_8)) }.getOrNull() ?: continue
             val handled = Helper.features.any { f ->
-                runCatching { f.onControl(client, json) }.getOrDefault(false)
+                try {
+                    f.onControl(client, json)
+                } catch (t: Throwable) {
+                    HelperErrors.record(f.name, "${f.name}.control.${json.optString("type")}", t)
+                    false
+                }
             }
             if (!handled) Log.d(TAG, "unhandled control: ${json.optString("type")}")
         }

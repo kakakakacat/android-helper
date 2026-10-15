@@ -2,6 +2,7 @@ package kakacat.android.helper.network
 
 import io.grpc.ManagedChannel
 import kakacat.android.helper.EventSink
+import kakacat.android.helper.HelperErrors
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
@@ -37,6 +38,7 @@ object Hooks {
             }
         } catch (t: Throwable) {
             // 落到原始行为
+            HelperErrors.record("network", "network.hook.okhttp", t)
         }
         return builder.build()
     }
@@ -57,6 +59,7 @@ object Hooks {
             val capture = WsCaptureListener(url, listener)
             CaptureWebSocket(client.newWebSocket(request, capture), capture)
         } catch (t: Throwable) {
+            HelperErrors.record("network", "network.hook.websocket", t)
             client.newWebSocket(request, listener)
         }
     }
@@ -70,6 +73,7 @@ object Hooks {
     fun grpc(channel: ManagedChannel): ManagedChannel = try {
         CaptureManagedChannel(channel, GrpcCaptureInterceptor())
     } catch (t: Throwable) {
+        HelperErrors.record("network", "network.hook.grpc", t)
         channel
     }
 }

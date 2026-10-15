@@ -4,6 +4,8 @@ import com.google.gson.JsonObject
 import kakacat.android.helper.client.adb.Adb
 import kakacat.android.helper.client.adb.Device
 import kakacat.android.helper.client.adb.Endpoint
+import kakacat.android.helper.client.errors.SdkError
+import kakacat.android.helper.client.errors.SdkErrorStore
 import kakacat.android.helper.client.layout.LayoutSnapshot
 import kakacat.android.helper.client.network.NetStore
 import kakacat.android.helper.client.network.int
@@ -42,6 +44,9 @@ class AppSession(private val adb: Adb, val endpoint: Endpoint) {
     /** 只在 [lock] 下读写。 */
     val netStore = NetStore(maxCalls = 2000)
     private var pid = 0
+
+    /** SDK 自身的错误（截图失败、插桩失败……），连上时设备会补发之前的。 */
+    val sdkErrors = SdkErrorStore()
 
     /** 最近一次 get_view_tree / find_views 的结果；节点 id 只对它有效。 */
     @Volatile var snapshot: LayoutSnapshot? = null
@@ -82,6 +87,8 @@ class AppSession(private val adb: Adb, val endpoint: Endpoint) {
                     synchronized(lock) { pid = frame.json.int("pid") ?: 0 }
                     hello = frame.json
                     helloLatch.countDown()
+                } else if (type == "sdk.error") {
+                    SdkError.parse(frame.json)?.let(sdkErrors::add)
                 } else if (type != null && type.endsWith(".result")) {
                     val req = frame.json.int("req") ?: return
                     val p = pending.remove(req) ?: return

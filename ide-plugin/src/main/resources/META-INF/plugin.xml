@@ -15,5 +15,10 @@
                     factoryClass="kakacat.android.helper.ide.HelperToolWindowFactory"/>
         <notificationGroup id="DroidLens" displayType="BALLOON"/>
         <postStartupActivity implementation="kakacat.android.helper.ide.HelperStartupActivity"/>
+        <errorHandler implementation="kakacat.android.helper.ide.report.DroidLensErrorSubmitter"/>
+        <applicationConfigurable parentId="tools"
+                                 instance="kakacat.android.helper.ide.report.ErrorReportConfigurable"
+                                 id="kakacat.droidlens.settings"
+                                 displayName="DroidLens"/>
     </extensions>
 </idea-plugin>

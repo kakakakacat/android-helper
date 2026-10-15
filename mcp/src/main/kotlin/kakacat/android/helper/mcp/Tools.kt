@@ -152,11 +152,42 @@ class Tools(private val sessions: Sessions) {
         ) { a -> ToolResult.text(getRequest(a)) },
 
         Tool(
+            "get_sdk_logs",
+            "Errors inside the Android Helper SDK itself (not the app's own errors): failed screenshots, " +
+                "SurfaceViews that could not be copied, instrumentation hooks that threw, Compose internals that changed, etc. " +
+                "Use it when a tool returns incomplete data (black areas in a screenshot, missing source locations, " +
+                "requests not captured) to see why. Each entry is deduplicated by location and exception, with a count.",
+            schema {
+                target()
+                boolean("stack", "Include full stack traces (default false).")
+            },
+        ) { a -> ToolResult.text(sdkLogs(a)) },
+
+        Tool(
             "clear_requests",
             "Forget the captured requests (e.g. before reproducing a specific action).",
             schema { target() },
         ) { a -> sessions.session(a.s("app"), a.s("device")).withStore { it.clear() }; ToolResult.text("cleared") },
     )
+
+    // ---- SDK errors ----
+
+    private fun sdkLogs(a: JsonObject): String {
+        val s = sessions.session(a.s("app"), a.s("device"))
+        val list = s.sdkErrors.all()
+        if (list.isEmpty()) {
+            return if (s.hello?.get("sdk") == null) "${s.endpoint.pkg} uses the old netcapture SDK, which does not report its own errors."
+            else "No SDK errors recorded in ${s.endpoint.pkg} since it started."
+        }
+        val fmt = java.text.SimpleDateFormat("HH:mm:ss")
+        return list.joinToString("\n\n") { e ->
+            buildString {
+                append("[${e.where}] ${e.exception}: ${e.message}")
+                append("\n  ×${e.count}, first ${fmt.format(e.first)}, last ${fmt.format(e.last)} · SDK ${e.sdk} · API ${e.api ?: "?"} · ${e.device ?: ""}")
+                if (a.b("stack") && e.stack.isNotBlank()) append("\n").append(e.stack.trimEnd().prependIndent("  "))
+            }
+        }
+    }
 
     // ---- devices / apps ----
 
