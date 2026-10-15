@@ -4,6 +4,11 @@ an <b>in-IDE network inspector</b> (OkHttp, gRPC, WebSocket) and a lightweight
 <b>layout inspector</b> that jumps straight to the code that created a view.
 No proxy, no CA certificate, no web page.
 </p>
+<p>
+<b>⚠ Your app needs the DroidLens SDK.</b> This plugin only displays the data; the capturing is done inside the app
+by a small runtime that the Gradle plugin adds to <b>debug builds only</b>. Without it, the app does not show up in the
+app list. See <a href="#setup">Setup</a> below; it takes two Gradle edits and no code changes.
+</p>
 
 <h3>Network</h3>
 <ul>
@@ -22,16 +27,42 @@ No proxy, no CA certificate, no web page.
   <li>Captures on demand only, no continuous streaming, so it stays fast on slow machines (a typical screen takes under 100 ms on the device).</li>
 </ul>
 
-<h3>Setup</h3>
-<p>Add the Gradle plugin to your app module; no code changes. The runtime is added to <code>debug</code> builds only and is completely absent from release builds.</p>
+<h3 id="setup">Setup (required)</h3>
+<p>1. <code>settings.gradle(.kts)</code>: add the repository in <b>both</b> places (the Gradle plugin resolves from
+<code>pluginManagement</code>, the runtime AAR from <code>dependencyResolutionManagement</code>).</p>
+<pre>pluginManagement {
+    repositories {
+        maven { url = uri("https://raw.githubusercontent.com/kakakakacat/android-helper/main/mvn-repo/") }
+        gradlePluginPortal()
+        google()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        maven { url = uri("https://raw.githubusercontent.com/kakakakacat/android-helper/main/mvn-repo/") }
+        google()
+        mavenCentral()
+    }
+}</pre>
+<p>2. App module:</p>
 <pre>plugins {
     id("kakacat.android.helper") version "0.1.1"
 }</pre>
-<p>Repository setup and options: <a href="https://github.com/kakakakacat/android-helper">github.com/kakakakacat/android-helper</a></p>
+<p>3. Rebuild and install the debug build, then pick the app in the DroidLens tool window and press ▶.</p>
+<p>No code changes. The runtime is added to <code>debug</code> builds only and is completely absent from release builds.
+Apps that use the older android-netcapture SDK still connect, but only the Network tab works; replace
+<code>kakacat.android.netcapture</code> with <code>kakacat.android.helper</code> to get the Layout tab (don't apply both).</p>
+<p>More options and troubleshooting: <a href="https://github.com/kakakakacat/android-helper">github.com/kakakakacat/android-helper</a></p>
 
 <hr/>
 <p>
 在 Android Studio 里直接调试运行中的 debug 包：应用层抓包（OkHttp / gRPC / WebSocket，HTTPS 明文，无需代理和证书），
 以及轻量的布局检查（截图、View / Compose 树、属性实时修改、一键跳到创建 View / 设置点击监听的代码）。
 可替代 CodeLocator 和 Layout Inspector 的常用功能。
+</p>
+<p>
+<b>⚠ App 需要接入 SDK 才能使用。</b>插件只负责显示，数据是 App 里的 SDK 采集的。按上面 <a href="#setup">Setup</a>
+在 <code>settings.gradle</code> 的两处加上仓库，在 app 模块加 <code>id("kakacat.android.helper") version "0.1.1"</code>，
+重新安装 debug 包即可，业务代码零改动，release 包里不会有 SDK。只接了老版 netcapture SDK 的 App 只能用 Network 页，
+换成 <code>kakacat.android.helper</code> 后才能用 Layout 页（两者不要同时应用）。
 </p>

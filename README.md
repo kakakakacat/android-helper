@@ -89,7 +89,7 @@ cd ide-plugin && ./gradlew buildPlugin
 ```
 
 Android Studio → Settings → Plugins → ⚙ → Install Plugin from Disk →
-选 `ide-plugin/build/distributions/android-helper-ide-0.1.0.zip`。
+选 `ide-plugin/build/distributions/android-helper-ide-0.1.1.zip`。
 
 底部会出现 **DroidLens** 工具窗口：选设备 → 选 App → ▶ 连接。
 连过一次之后，下次打开工具窗口时该 App 在运行就会自动连上；App 重启后自动重连。

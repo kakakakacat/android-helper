@@ -190,6 +190,9 @@ class HelperToolWindow(private val project: Project, private val session: Helper
                         } else {
                             HelperBundle.message("status.appsFound", list.size.toString())
                         }
+                    } else {
+                        // 已经连着：刷新时显示的"正在查找设备…"换回连接状态
+                        onStateChanged(session.state, session.statusMessage)
                     }
                 }
             }
