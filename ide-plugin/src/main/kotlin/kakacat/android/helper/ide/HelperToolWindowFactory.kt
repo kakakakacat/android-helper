@@ -23,6 +23,7 @@ import kakacat.android.helper.client.adb.Endpoint
 import kakacat.android.helper.ide.layout.LayoutPanel
 import kakacat.android.helper.ide.network.NetworkPanel
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.FlowLayout
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JPanel
@@ -51,6 +52,8 @@ class HelperToolWindow(private val project: Project, private val session: Helper
     private val devices = ComboBox<Device>()
     private val apps = ComboBox<Endpoint>()
     private val status = JBLabel().apply { border = JBUI.Borders.emptyLeft(8) }
+    private val cards = CardLayout()
+    private val center = JPanel(cards)
 
     @Volatile
     private var loading = false
@@ -115,13 +118,16 @@ class HelperToolWindow(private val project: Project, private val session: Helper
         System.getProperty("androidhelper.demoTab")?.let { title ->
             (0 until tabs.tabCount).firstOrNull { tabs.getTitleAt(it) == title }?.let { tabs.selectedIndex = it }
         }
-        add(tabs, BorderLayout.CENTER)
+        center.add(tabs, CARD_TABS)
+        center.add(SetupPanel(), CARD_SETUP)
+        add(center, BorderLayout.CENTER)
 
         session.addListener(this)
         onStateChanged(session.state, session.statusMessage)
     }
 
     override fun onStateChanged(state: HelperSession.State, message: String?) {
+        if (state != HelperSession.State.DISCONNECTED) showSetup(false)
         status.text = message ?: when (state) {
             HelperSession.State.DISCONNECTED -> HelperBundle.message("status.disconnected")
             else -> ""
@@ -173,6 +179,7 @@ class HelperToolWindow(private val project: Project, private val session: Helper
             SwingUtilities.invokeLater {
                 result.onFailure { status.text = HelperBundle.message("status.listAppsFailed", it.message ?: "") }
                 result.onSuccess { list ->
+                    showSetup(list.isEmpty())
                     val previous = (apps.selectedItem as? Endpoint) ?: session.endpoint
                     apps.model = DefaultComboBoxModel(list.toTypedArray())
                     list.firstOrNull { it.pkg == previous?.pkg }?.let { apps.selectedItem = it }
@@ -210,6 +217,16 @@ class HelperToolWindow(private val project: Project, private val session: Helper
                     .notify(project)
             }
         }
+    }
+
+    /** 设备在线却没有接了 SDK 的 App 时，中间换成接入步骤；连上或找到 App 就换回标签页。 */
+    private fun showSetup(show: Boolean) {
+        cards.show(center, if (show && session.state == HelperSession.State.DISCONNECTED) CARD_SETUP else CARD_TABS)
+    }
+
+    private companion object {
+        const val CARD_TABS = "tabs"
+        const val CARD_SETUP = "setup"
     }
 
     private fun action(text: String, icon: javax.swing.Icon, run: () -> Unit) =
